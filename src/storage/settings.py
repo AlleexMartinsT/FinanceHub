@@ -32,7 +32,7 @@ class AppSettingsStore:
                     app_dir=r"C:\FinanceBot",
                     start_args=["main.py", "--server", "--no-browser"],
                     route_prefix="financeiro",
-                    repo_url="https://github.com/AlleexMartinsT/FinanceBot.git",
+                    repo_url="https://github.com/AlleexMartinsT/financeiroBot.git",
                     repo_branch="main",
                     auto_clone_missing=True,
                     credentials_key="financeiro_principal",
@@ -78,7 +78,7 @@ class AppSettingsStore:
             backend_default = legacy["financeiro_url"]
             app_default = legacy["financeiro_dir"]
             prefix_default = "financeiro"
-            repo_default = "https://github.com/AlleexMartinsT/FinanceBot.git"
+            repo_default = "https://github.com/AlleexMartinsT/financeiroBot.git"
         elif inst_type == "anabot":
             backend_default = legacy["anabot_url"]
             app_default = legacy["anabot_dir"]
