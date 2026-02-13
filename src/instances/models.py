@@ -15,16 +15,29 @@ class InstanceConfig:
     instance_type: str
     enabled: bool = True
     interval_seconds: int = 1800
+    backend_url: str = ""
+    app_dir: str = ""
+    start_args: list[str] = field(default_factory=list)
+    route_prefix: str = ""
     credentials_key: str = ""
     notes: str = ""
 
     def sanitize(self) -> "InstanceConfig":
         if not self.instance_id:
             raise ValueError("instance_id obrigatorio")
+        self.instance_type = str(self.instance_type or "").strip().lower()
         if self.instance_type not in VALID_INSTANCE_TYPES:
             raise ValueError(f"instance_type invalido: {self.instance_type}")
         self.interval_seconds = max(30, min(86400, int(self.interval_seconds)))
         self.display_name = self.display_name or self.instance_id
+        self.backend_url = str(self.backend_url or "").strip()
+        self.app_dir = str(self.app_dir or "").strip()
+        self.start_args = [str(x).strip() for x in (self.start_args or []) if str(x).strip()]
+        rp = str(self.route_prefix or self.instance_id).strip().strip("/")
+        rp = rp.replace("\\", "/")
+        if not rp:
+            rp = self.instance_id
+        self.route_prefix = rp
         self.credentials_key = str(self.credentials_key or "").strip()
         self.notes = str(self.notes or "").strip()
         return self
@@ -55,10 +68,6 @@ class RuntimeState:
 class AppConfig:
     panel_host: str = "0.0.0.0"
     panel_port: int = 8877
-    financeiro_panel_url: str = "http://127.0.0.1:8765"
-    anabot_panel_url: str = "http://127.0.0.1:8865"
-    financeiro_app_dir: str = r"C:\Users\vendas\Desktop\financeiroAPP"
-    anabot_app_dir: str = r"C:\Users\vendas\Desktop\anaBot"
     auto_update_enabled: bool = True
     auto_update_interval_minutes: int = 5
     auto_update_remote: str = "origin"

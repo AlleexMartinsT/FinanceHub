@@ -18,14 +18,12 @@ def _restart_process(base_dir: Path):
 
 
 def _check_sync(config) -> None:
-    fin_dir = Path(str(config.financeiro_app_dir))
-    ana_dir = Path(str(config.anabot_app_dir))
-    fin_main = fin_dir / "main.py"
-    ana_main = ana_dir / "main.py"
-    print(f"[Sync] Financeiro URL: {config.financeiro_panel_url}")
-    print(f"[Sync] Financeiro dir: {fin_dir} | main.py={'OK' if fin_main.exists() else 'FALTA'}")
-    print(f"[Sync] AnaBot URL: {config.anabot_panel_url}")
-    print(f"[Sync] AnaBot dir: {ana_dir} | main.py={'OK' if ana_main.exists() else 'FALTA'}")
+    for inst in config.instances:
+        app_dir = Path(str(inst.app_dir or ""))
+        main_file = app_dir / "main.py"
+        print(f"[Sync] {inst.display_name} ({inst.route_prefix})")
+        print(f"[Sync] URL: {inst.backend_url}")
+        print(f"[Sync] Dir: {app_dir} | main.py={'OK' if main_file.exists() else 'FALTA'}")
 
 
 def main() -> None:

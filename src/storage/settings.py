@@ -17,10 +17,6 @@ class AppSettingsStore:
         return AppConfig(
             panel_host="0.0.0.0",
             panel_port=8877,
-            financeiro_panel_url="http://127.0.0.1:8765",
-            anabot_panel_url="http://127.0.0.1:8865",
-            financeiro_app_dir=r"C:\Users\vendas\Desktop\financeiroAPP",
-            anabot_app_dir=r"C:\Users\vendas\Desktop\anaBot",
             auto_update_enabled=True,
             auto_update_interval_minutes=5,
             auto_update_remote="origin",
@@ -32,20 +28,77 @@ class AppSettingsStore:
                     instance_type="financeiro",
                     enabled=True,
                     interval_seconds=1800,
+                    backend_url="http://127.0.0.1:8765",
+                    app_dir=r"C:\FinanceBot",
+                    start_args=["main.py", "--server", "--no-browser"],
+                    route_prefix="financeiro",
                     credentials_key="financeiro_principal",
                     notes="Instancia base do FinanceiroAPP",
-                ),
+                ).sanitize(),
                 InstanceConfig(
                     instance_id="anabot_principal",
                     display_name="AnaBot Principal",
                     instance_type="anabot",
                     enabled=False,
                     interval_seconds=1800,
+                    backend_url="http://127.0.0.1:8865",
+                    app_dir=r"C:\AnaBot",
+                    start_args=["main.py", "--server", "--no-browser"],
+                    route_prefix="anabot",
                     credentials_key="anabot_principal",
                     notes="Instancia base do anaBot",
-                ),
+                ).sanitize(),
             ],
         )
+
+    @staticmethod
+    def _legacy_defaults(raw: dict) -> dict:
+        return {
+            "financeiro_url": str(raw.get("financeiro_panel_url", "http://127.0.0.1:8765")).strip() or "http://127.0.0.1:8765",
+            "anabot_url": str(raw.get("anabot_panel_url", "http://127.0.0.1:8865")).strip() or "http://127.0.0.1:8865",
+            "financeiro_dir": str(raw.get("financeiro_app_dir", r"C:\FinanceBot")).strip() or r"C:\FinanceBot",
+            "anabot_dir": str(raw.get("anabot_app_dir", r"C:\AnaBot")).strip() or r"C:\AnaBot",
+        }
+
+    @staticmethod
+    def _default_start_args(instance_type: str) -> list[str]:
+        if instance_type == "financeiro":
+            return ["main.py", "--server", "--no-browser"]
+        return ["main.py", "--server", "--no-browser"]
+
+    def _parse_instance(self, item: dict, legacy: dict) -> InstanceConfig:
+        inst_type = str(item.get("instance_type", "")).strip().lower()
+        if inst_type == "financeiro":
+            backend_default = legacy["financeiro_url"]
+            app_default = legacy["financeiro_dir"]
+            prefix_default = "financeiro"
+        elif inst_type == "anabot":
+            backend_default = legacy["anabot_url"]
+            app_default = legacy["anabot_dir"]
+            prefix_default = "anabot"
+        else:
+            backend_default = ""
+            app_default = ""
+            prefix_default = str(item.get("instance_id", "")).strip() or "instancia"
+
+        start_args = item.get("start_args")
+        if not isinstance(start_args, list):
+            start_args = self._default_start_args(inst_type)
+
+        cfg = InstanceConfig(
+            instance_id=str(item.get("instance_id", "")).strip(),
+            display_name=str(item.get("display_name", "")).strip(),
+            instance_type=inst_type,
+            enabled=bool(item.get("enabled", True)),
+            interval_seconds=int(item.get("interval_seconds", 1800)),
+            backend_url=str(item.get("backend_url", backend_default)).strip() or backend_default,
+            app_dir=str(item.get("app_dir", app_default)).strip() or app_default,
+            start_args=[str(x) for x in start_args],
+            route_prefix=str(item.get("route_prefix", prefix_default)).strip() or prefix_default,
+            credentials_key=str(item.get("credentials_key", "")).strip(),
+            notes=str(item.get("notes", "")).strip(),
+        ).sanitize()
+        return cfg
 
     def load(self) -> AppConfig:
         if not self.path.exists():
@@ -65,12 +118,7 @@ class AppSettingsStore:
             panel_port = max(1024, min(65535, int(raw.get("panel_port", 8877))))
         except Exception:
             panel_port = 8877
-        financeiro_panel_url = str(raw.get("financeiro_panel_url", "http://127.0.0.1:8765")).strip() or "http://127.0.0.1:8765"
-        anabot_panel_url = str(raw.get("anabot_panel_url", "http://127.0.0.1:8865")).strip() or "http://127.0.0.1:8865"
-        if anabot_panel_url.endswith("/anabot"):
-            anabot_panel_url = "http://127.0.0.1:8865"
-        financeiro_app_dir = str(raw.get("financeiro_app_dir", r"C:\Users\vendas\Desktop\financeiroAPP")).strip() or r"C:\Users\vendas\Desktop\financeiroAPP"
-        anabot_app_dir = str(raw.get("anabot_app_dir", r"C:\Users\vendas\Desktop\anaBot")).strip() or r"C:\Users\vendas\Desktop\anaBot"
+
         auto_update_enabled = bool(raw.get("auto_update_enabled", True))
         try:
             auto_update_interval_minutes = max(1, min(720, int(raw.get("auto_update_interval_minutes", 5))))
@@ -79,19 +127,16 @@ class AppSettingsStore:
         auto_update_remote = str(raw.get("auto_update_remote", "origin")).strip() or "origin"
         auto_update_branch = str(raw.get("auto_update_branch", "main")).strip() or "main"
 
+        legacy = self._legacy_defaults(raw)
+        if legacy["anabot_url"].endswith("/anabot"):
+            legacy["anabot_url"] = "http://127.0.0.1:8865"
+
         instances = []
         for item in raw.get("instances", []):
             try:
-                cfg = InstanceConfig(
-                    instance_id=str(item.get("instance_id", "")).strip(),
-                    display_name=str(item.get("display_name", "")).strip(),
-                    instance_type=str(item.get("instance_type", "")).strip().lower(),
-                    enabled=bool(item.get("enabled", True)),
-                    interval_seconds=int(item.get("interval_seconds", 1800)),
-                    credentials_key=str(item.get("credentials_key", "")).strip(),
-                    notes=str(item.get("notes", "")).strip(),
-                ).sanitize()
-                instances.append(cfg)
+                if not isinstance(item, dict):
+                    continue
+                instances.append(self._parse_instance(item, legacy))
             except Exception:
                 continue
 
@@ -101,10 +146,6 @@ class AppSettingsStore:
         cfg = AppConfig(
             panel_host=panel_host,
             panel_port=panel_port,
-            financeiro_panel_url=financeiro_panel_url,
-            anabot_panel_url=anabot_panel_url,
-            financeiro_app_dir=financeiro_app_dir,
-            anabot_app_dir=anabot_app_dir,
             auto_update_enabled=auto_update_enabled,
             auto_update_interval_minutes=auto_update_interval_minutes,
             auto_update_remote=auto_update_remote,
@@ -118,10 +159,6 @@ class AppSettingsStore:
         out = {
             "panel_host": config.panel_host,
             "panel_port": int(config.panel_port),
-            "financeiro_panel_url": str(config.financeiro_panel_url or "").strip(),
-            "anabot_panel_url": str(config.anabot_panel_url or "").strip(),
-            "financeiro_app_dir": str(config.financeiro_app_dir or "").strip(),
-            "anabot_app_dir": str(config.anabot_app_dir or "").strip(),
             "auto_update_enabled": bool(config.auto_update_enabled),
             "auto_update_interval_minutes": int(config.auto_update_interval_minutes),
             "auto_update_remote": str(config.auto_update_remote or "").strip(),
@@ -133,6 +170,10 @@ class AppSettingsStore:
                     "instance_type": i.instance_type,
                     "enabled": bool(i.enabled),
                     "interval_seconds": int(i.interval_seconds),
+                    "backend_url": i.backend_url,
+                    "app_dir": i.app_dir,
+                    "start_args": list(i.start_args or []),
+                    "route_prefix": i.route_prefix,
                     "credentials_key": i.credentials_key,
                     "notes": i.notes,
                 }
@@ -140,3 +181,4 @@ class AppSettingsStore:
             ],
         }
         self.path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+

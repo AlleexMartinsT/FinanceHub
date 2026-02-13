@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from core.runtime import InstanceRuntimeManager
+from instances.models import InstanceConfig
 from storage.settings import AppSettingsStore
 
 
@@ -71,49 +72,29 @@ class HubHttpServer:
             if proc is not None and proc.poll() is None:
                 return True
             try:
-                cmd = [self._python_cmd(app_dir)] + args
+                cmd = [self._python_cmd(app_dir)] + list(args or ["main.py"])
                 self._procs[key] = subprocess.Popen(cmd, cwd=app_dir)
                 return True
             except Exception:
                 return False
 
-    def _ensure_backend_online(self, key: str, backend_url: str, app_dir: str, args: list[str]) -> bool:
-        if self._url_online(backend_url):
+    def _ensure_backend_online(self, inst: InstanceConfig) -> bool:
+        if self._url_online(inst.backend_url):
             return True
-        if not self._start_app_if_needed(key, app_dir, args):
+        if not inst.app_dir:
+            return False
+        if not self._start_app_if_needed(inst.instance_id, inst.app_dir, inst.start_args):
             return False
         deadline = time.time() + 30
         while time.time() < deadline:
-            if self._url_online(backend_url):
+            if self._url_online(inst.backend_url):
                 return True
             time.sleep(0.6)
         return False
 
-    def warm_up_enabled_backends(self) -> None:
-        cfg = self.settings.load()
-        enabled_types = {str(i.instance_type).lower() for i in cfg.instances if bool(i.enabled)}
-
-        if "financeiro" in enabled_types:
-            ok = self._ensure_backend_online(
-                key="financeiro",
-                backend_url=cfg.financeiro_panel_url,
-                app_dir=cfg.financeiro_app_dir,
-                args=["main.py", "--server", "--no-browser"],
-            )
-            print(f"[Warmup] Financeiro: {'OK' if ok else 'FALHA'}")
-
-        if "anabot" in enabled_types:
-            ok = self._ensure_backend_online(
-                key="anabot",
-                backend_url=cfg.anabot_panel_url,
-                app_dir=cfg.anabot_app_dir,
-                args=["main.py"],
-            )
-            print(f"[Warmup] AnaBot: {'OK' if ok else 'FALHA'}")
-
     @staticmethod
     def _backend_target(base_url: str, inbound_path: str, prefix: str) -> str:
-        # inbound_path ex: /financeiro/api/status -> /api/status
+        # inbound_path ex: /empresa1/financeiro/api/status -> /api/status
         path = inbound_path[len(prefix) :]
         if not path.startswith("/"):
             path = "/" + path
@@ -130,14 +111,11 @@ class HubHttpServer:
         except Exception:
             return body
 
-        # Ajustes principais para apps que usam paths absolutos
-        # /api/* -> /{prefix}/api/*
         text = text.replace('"/api/', f'"/{prefix}/api/')
         text = text.replace("'/api/", f"'/{prefix}/api/")
         text = text.replace('fetch("/api/', f'fetch("/{prefix}/api/')
         text = text.replace("fetch('/api/", f"fetch('/{prefix}/api/")
 
-        # login/logout e raiz
         text = text.replace('href="/logout"', f'href="/{prefix}/logout"')
         text = text.replace('href="/login"', f'href="/{prefix}/login"')
         text = text.replace('action="/login"', f'action="/{prefix}/login"')
@@ -145,8 +123,10 @@ class HubHttpServer:
 
         return text.encode("utf-8")
 
-    def _proxy(self, handler: BaseHTTPRequestHandler, backend_url: str, prefix: str):
-        target = self._backend_target(backend_url, handler.path, f"/{prefix}")
+    def _proxy(self, handler: BaseHTTPRequestHandler, inst: InstanceConfig):
+        prefix = inst.route_prefix.strip("/")
+        prefix_path = f"/{prefix}"
+        target = self._backend_target(inst.backend_url, handler.path, prefix_path)
 
         headers = {}
         for k, v in handler.headers.items():
@@ -177,7 +157,6 @@ class HubHttpServer:
                     if kl in {"content-length", "transfer-encoding", "connection", "content-encoding"}:
                         continue
                     if kl == "location":
-                        # redirecionamento absoluto do backend para prefixo do HUB
                         parsed = urlparse(v)
                         loc = parsed.path or "/"
                         if not loc.startswith(f"/{prefix}/"):
@@ -204,7 +183,24 @@ class HubHttpServer:
             handler.wfile.write(raw)
             return
         except Exception as exc:
-            _html_response(handler, 502, f"<h1>Backend indisponível</h1><p>{exc}</p>")
+            _html_response(handler, 502, f"<h1>Backend indisponivel</h1><p>{exc}</p>")
+
+    def warm_up_enabled_backends(self) -> None:
+        cfg = self.settings.load()
+        for inst in cfg.instances:
+            if not inst.enabled:
+                continue
+            ok = self._ensure_backend_online(inst)
+            print(f"[Warmup] {inst.display_name}: {'OK' if ok else 'FALHA'}")
+
+    @staticmethod
+    def _instances_by_prefix(instances: list[InstanceConfig]) -> dict[str, InstanceConfig]:
+        out: dict[str, InstanceConfig] = {}
+        for inst in instances:
+            p = inst.route_prefix.strip("/")
+            if p and p not in out:
+                out[p] = inst
+        return out
 
     def start(self) -> None:
         runtime = self.runtime
@@ -217,49 +213,28 @@ class HubHttpServer:
             def _route(self):
                 cfg = settings_store.load()
                 path = urlparse(self.path).path
+                by_prefix = self.server.hub_ref._instances_by_prefix(cfg.instances)
 
                 if path == "/":
-                    return _html_response(self, 200, _render_home_html())
+                    return _html_response(self, 200, _render_home_html(cfg.instances))
 
                 if path == "/hub/api/instances":
                     return _json_response(self, 200, {"items": runtime.list()})
 
-                if path == "/financeiro":
-                    return _redirect_response(self, "/financeiro/")
-                if path == "/anabot":
-                    return _redirect_response(self, "/anabot/")
-
-                if path.startswith("/financeiro/"):
-                    ok = self.server.hub_ref._ensure_backend_online(
-                        key="financeiro",
-                        backend_url=cfg.financeiro_panel_url,
-                        app_dir=cfg.financeiro_app_dir,
-                        args=["main.py", "--server", "--no-browser"],
-                    )
-                    if not ok:
-                        return _html_response(
-                            self,
-                            503,
-                            "<h1>Financeiro indisponível</h1>"
-                            "<p>Não foi possível iniciar ou alcançar o FinanceiroBot</p>",
-                        )
-                    return self.server.hub_ref._proxy(self, cfg.financeiro_panel_url, "financeiro")
-
-                if path.startswith("/anabot/"):
-                    ok = self.server.hub_ref._ensure_backend_online(
-                        key="anabot",
-                        backend_url=cfg.anabot_panel_url,
-                        app_dir=cfg.anabot_app_dir,
-                        args=["main.py"],
-                    )
-                    if not ok:
-                        return _html_response(
-                            self,
-                            503,
-                            "<h1>AnaBot indisponível</h1>"
-                            "<p>Não foi possível iniciar ou alcançar o AnaBot Web</p>",
-                        )
-                    return self.server.hub_ref._proxy(self, cfg.anabot_panel_url, "anabot")
+                for prefix, inst in by_prefix.items():
+                    base = f"/{prefix}"
+                    if path == base:
+                        return _redirect_response(self, f"{base}/")
+                    if path.startswith(f"{base}/"):
+                        ok = self.server.hub_ref._ensure_backend_online(inst)
+                        if not ok:
+                            return _html_response(
+                                self,
+                                503,
+                                f"<h1>{inst.display_name} indisponivel</h1>"
+                                "<p>Nao foi possivel iniciar ou alcancar o backend configurado</p>",
+                            )
+                        return self.server.hub_ref._proxy(self, inst)
 
                 return _json_response(self, 404, {"ok": False, "error": "Nao encontrado"})
 
@@ -313,11 +288,25 @@ def _base_styles() -> str:
     .subtitle{margin:0 0 18px;color:#6e533f}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
     .card{background:#fff;border:1px solid #e6cdb6;border-radius:10px;padding:16px}
+    .pill{display:inline-block;border-radius:999px;padding:3px 8px;background:#f3e4d5;margin-bottom:8px}
     .btn{border:0;border-radius:8px;padding:8px 10px;cursor:pointer;background:#c56a1a;color:#fff;text-decoration:none;display:inline-block}
     """
 
 
-def _render_home_html() -> str:
+def _render_home_html(instances: list[InstanceConfig]) -> str:
+    cards = []
+    for inst in instances:
+        prefix = inst.route_prefix.strip("/")
+        cards.append(
+            f"""
+      <div class="card">
+        <span class="pill">{inst.instance_type}</span>
+        <h2>{inst.display_name}</h2>
+        <p>{inst.notes or "Instancia configurada no HUB"}</p>
+        <a class="btn" href="/{prefix}/">Abrir</a>
+      </div>
+"""
+        )
     return """<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -331,19 +320,11 @@ def _render_home_html() -> str:
 <body>
   <div class="container">
     <h1>FinanceAnaHub</h1>
-    <p class="subtitle">Acesso centralizado aos sistemas</p>
+    <p class="subtitle">Acesso centralizado por instancia</p>
     <div class="grid">
-      <div class="card">
-        <h2>FinanceiroBot</h2>
-        <p>Painel financeiro principal via HUB</p>
-        <a class="btn" href="/financeiro/">Abrir Financeiro</a>
-      </div>
-      <div class="card">
-        <h2>AnaBot</h2>
-        <p>Painel web do AnaBot via HUB</p>
-        <a class="btn" href="/anabot/">Abrir AnaBot</a>
-      </div>
+""" + "".join(cards) + """
     </div>
   </div>
 </body>
 </html>"""
+

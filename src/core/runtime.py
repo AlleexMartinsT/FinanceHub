@@ -39,6 +39,10 @@ class InstanceWorker:
             "instance_id": self.config.instance_id,
             "display_name": self.config.display_name,
             "instance_type": self.config.instance_type,
+            "route_prefix": self.config.route_prefix,
+            "backend_url": self.config.backend_url,
+            "app_dir": self.config.app_dir,
+            "start_args": list(self.config.start_args or []),
             "enabled": self.config.enabled,
             "interval_seconds": self.config.interval_seconds,
             "credentials_key": self.config.credentials_key,
@@ -122,4 +126,3 @@ class InstanceRuntimeManager:
     def stop_all(self) -> None:
         for worker in self._workers.values():
             worker.stop()
-

@@ -28,17 +28,29 @@ python src/main.py
 Painel padrao:
 
 - `http://127.0.0.1:8877`
-- `http://127.0.0.1:8877/financeiro` (redireciona para o painel real do financeiroAPP)
-- `http://127.0.0.1:8877/anabot`
+
+Cada instancia abre em sua propria rota definida no `route_prefix`, por exemplo:
+
+- `http://127.0.0.1:8877/financeiro/`
+- `http://127.0.0.1:8877/anabot/`
 
 Arquivo de instancias:
 
 - `C:\Users\vendas\Desktop\FinanceAnaHub\data\instances.json`
 
-URLs de destino dos modulos (configuraveis no mesmo JSON):
+Campos por instancia no `instances.json`:
 
-- `financeiro_panel_url` (padrao: `http://127.0.0.1:8765`)
-- `anabot_panel_url` (padrao atual: `http://127.0.0.1:8877/anabot`)
+- `instance_id`
+- `display_name`
+- `instance_type` (`financeiro` ou `anabot`)
+- `enabled`
+- `backend_url`
+- `app_dir`
+- `start_args`
+- `route_prefix`
+- `interval_seconds`
+- `credentials_key`
+- `notes`
 
 ## Auto-update do HUB (Git)
 
