@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+import math
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -399,29 +400,58 @@ class HubHttpServer:
 
 def _base_styles() -> str:
     return """
-    body{font-family:Arial,sans-serif;background:#f8f2eb;margin:0;padding:16px;color:#3f2a1d}
-    .container{max-width:1100px;margin:0 auto}
-    h1{margin:0 0 12px}
-    .subtitle{margin:0 0 18px;color:#6e533f}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-    .card{background:#fff;border:1px solid #e6cdb6;border-radius:10px;padding:16px}
-    .pill{display:inline-block;border-radius:999px;padding:3px 8px;background:#f3e4d5;margin-bottom:8px}
-    .btn{border:0;border-radius:8px;padding:8px 10px;cursor:pointer;background:#c56a1a;color:#fff;text-decoration:none;display:inline-block}
+    :root{--bg:#f2f3f6;--ink:#1b1b1b;--blue:#1769e8;--core:#8fd4f8}
+    body{font-family:Arial,sans-serif;background:var(--bg);margin:0;padding:20px;color:var(--ink)}
+    .container{max-width:980px;margin:0 auto;text-align:center}
+    .title{font-size:56px;font-weight:900;line-height:1.05;margin:10px 0 4px}
+    .subtitle{margin:0 0 18px;color:#5b5b5b}
+    .hub-wrap{display:flex;justify-content:center;align-items:center}
+    .hub-diagram{position:relative;width:760px;height:760px;max-width:94vw;max-height:94vw}
+    .node{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y)));display:flex;align-items:center;justify-content:center;text-decoration:none;color:#222}
+    .spoke{width:138px;height:138px;border-radius:999px;background:#fff;border:8px solid var(--c);font-size:30px;font-weight:700;line-height:1.1;box-sizing:border-box;box-shadow:0 1px 0 #0000000f}
+    .spoke small{display:block;font-size:12px;font-weight:600;color:#555;margin-top:4px}
+    .connector{position:absolute;left:50%;top:50%;width:4px;height:130px;background:var(--c);transform:translate(-50%,-50%) rotate(var(--a)) translateY(calc(-1 * var(--r)));transform-origin:center}
+    .hub-shell{position:absolute;left:50%;top:50%;width:278px;height:278px;border-radius:999px;transform:translate(-50%,-50%);background:conic-gradient(#5e8ad8 0 60deg,#43c2a8 60deg 120deg,#bad360 120deg 180deg,#f0a66e 180deg 240deg,#b890e7 240deg 300deg,#5e8ad8 300deg 360deg)}
+    .hub-core{position:absolute;left:50%;top:50%;width:250px;height:250px;border-radius:999px;transform:translate(-50%,-50%);background:var(--blue);display:flex;align-items:center;justify-content:center}
+    .hub-center{width:118px;height:118px;border-radius:999px;background:var(--core);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700}
+    .hub-label-top{position:absolute;left:50%;top:68px;transform:translateX(-50%) rotate(-9deg);color:#fff;font-weight:700}
+    .hub-label-bottom{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);color:#fff;font-weight:700}
+    .hub-actions{margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .btn{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:#1769e8;color:#fff;text-decoration:none;display:inline-block;font-weight:700}
+    .btn.alt{background:#5d6f7f}
+    @media (max-width:760px){
+      .title{font-size:42px}
+      .spoke{width:112px;height:112px;font-size:22px;border-width:6px}
+      .connector{height:104px}
+      .hub-shell{width:228px;height:228px}
+      .hub-core{width:204px;height:204px}
+      .hub-center{width:98px;height:98px}
+      .hub-label-top{top:56px}
+      .hub-label-bottom{bottom:48px}
+    }
     """
 
 
 def _render_home_html(instances: list[InstanceConfig]) -> str:
-    cards = []
-    for inst in instances:
+    colors = ["#5e8ad8", "#e08dc8", "#45c2ad", "#b4d15a", "#f1ad77", "#b98be2", "#4db0f2", "#d39157"]
+    spokes = []
+    n = max(1, len(instances))
+    radius = 250
+    for i, inst in enumerate(instances):
+        angle_deg = -90 + (360 / n) * i
+        angle = math.radians(angle_deg)
+        x = int(math.cos(angle) * radius)
+        y = int(math.sin(angle) * radius)
+        color = colors[i % len(colors)]
         prefix = inst.route_prefix.strip("/")
-        cards.append(
+        name = inst.display_name
+        spokes.append(
             f"""
-      <div class="card">
-        <span class="pill">{inst.instance_type}</span>
-        <h2>{inst.display_name}</h2>
-        <p>{inst.notes or "Instancia configurada no HUB"}</p>
-        <a class="btn" href="/{prefix}/">Abrir</a>
-      </div>
+      <div class="connector" style="--a:{angle_deg}deg;--r:{radius}px;--c:{color}"></div>
+      <a class="node spoke" style="--x:{x}px;--y:{y}px;--c:{color}" href="/{prefix}/">
+        {name}
+        <small>{inst.instance_type}</small>
+      </a>
 """
         )
     return """<!doctype html>
@@ -429,17 +459,33 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FinanceAnaHub</title>
+  <title>Hub MVA</title>
   <style>
 """ + _base_styles() + """
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>FinanceAnaHub</h1>
-    <p class="subtitle">Acesso centralizado por instancia</p>
-    <div class="grid">
-""" + "".join(cards) + """
+    <h1 class="title">Hub MVA</h1>
+    <p class="subtitle">Hub and Spoke style navigation for all modules</p>
+    <div class="hub-wrap">
+      <div class="hub-diagram">
+""" + "".join(spokes) + """
+        <div class="hub-shell"></div>
+        <div class="hub-core">
+          <div class="hub-label-top">Contact Us</div>
+          <div class="hub-center">
+            <div>Customer</div>
+            <div>Service</div>
+          </div>
+          <div class="hub-label-bottom">FAQ</div>
+        </div>
+      </div>
+    </div>
+    <div class="hub-actions">
+      <a class="btn" href="#">Contact Us</a>
+      <a class="btn alt" href="#">FAQ</a>
+      <a class="btn alt" href="#">Customer Service</a>
     </div>
   </div>
 </body>
