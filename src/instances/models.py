@@ -19,6 +19,9 @@ class InstanceConfig:
     app_dir: str = ""
     start_args: list[str] = field(default_factory=list)
     route_prefix: str = ""
+    repo_url: str = ""
+    repo_branch: str = "main"
+    auto_clone_missing: bool = False
     credentials_key: str = ""
     notes: str = ""
 
@@ -38,6 +41,9 @@ class InstanceConfig:
         if not rp:
             rp = self.instance_id
         self.route_prefix = rp
+        self.repo_url = str(self.repo_url or "").strip()
+        self.repo_branch = str(self.repo_branch or "main").strip() or "main"
+        self.auto_clone_missing = bool(self.auto_clone_missing)
         self.credentials_key = str(self.credentials_key or "").strip()
         self.notes = str(self.notes or "").strip()
         return self

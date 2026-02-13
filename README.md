@@ -25,6 +25,20 @@ cd C:\Users\vendas\Desktop\FinanceAnaHub
 python src/main.py
 ```
 
+## Instalacao padrao (servidor)
+
+1. Clone somente o HUB:
+
+```bash
+cd C:\
+git clone https://github.com/AlleexMartinsT/FinanceHub.git C:\FinanceHub
+```
+
+2. Rode `C:\FinanceHub\run_hub.bat`
+
+Por padrao, a instancia `financeiro_principal` tenta usar `C:\FinanceBot`.
+Se a pasta nao existir e `auto_clone_missing=true`, o HUB clona automaticamente o repositorio configurado em `repo_url` para `C:\FinanceBot`.
+
 Painel padrao:
 
 - `http://127.0.0.1:8877`
@@ -48,6 +62,9 @@ Campos por instancia no `instances.json`:
 - `app_dir`
 - `start_args`
 - `route_prefix`
+- `repo_url`
+- `repo_branch`
+- `auto_clone_missing`
 - `interval_seconds`
 - `credentials_key`
 - `notes`

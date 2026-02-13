@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -78,11 +79,39 @@ class HubHttpServer:
             except Exception:
                 return False
 
+    def _clone_if_needed(self, inst: InstanceConfig) -> bool:
+        app_path = Path(str(inst.app_dir or ""))
+        if app_path.exists():
+            return True
+        if not inst.auto_clone_missing:
+            return False
+        if not inst.repo_url:
+            return False
+        if shutil.which("git") is None:
+            return False
+        try:
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            cmd = ["git", "clone", "--branch", inst.repo_branch or "main", inst.repo_url, str(app_path)]
+            proc = subprocess.run(cmd, text=True, capture_output=True, check=False)
+            if proc.returncode != 0:
+                out = (proc.stderr or proc.stdout or "").strip()
+                print(f"[Clone] Falha em {inst.display_name}: {out}")
+                return False
+            print(f"[Clone] Repositorio clonado para {app_path}")
+            return True
+        except Exception as exc:
+            print(f"[Clone] Erro ao clonar {inst.display_name}: {exc}")
+            return False
+
     def _ensure_backend_online(self, inst: InstanceConfig) -> bool:
         if self._url_online(inst.backend_url):
             return True
         if not inst.app_dir:
             return False
+        if not self._clone_if_needed(inst):
+            # se a pasta ja existir mas clone nao era necessario, segue normalmente
+            if not Path(inst.app_dir).exists():
+                return False
         if not self._start_app_if_needed(inst.instance_id, inst.app_dir, inst.start_args):
             return False
         deadline = time.time() + 30
@@ -327,4 +356,3 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
   </div>
 </body>
 </html>"""
-

@@ -32,6 +32,9 @@ class AppSettingsStore:
                     app_dir=r"C:\FinanceBot",
                     start_args=["main.py", "--server", "--no-browser"],
                     route_prefix="financeiro",
+                    repo_url="https://github.com/AlleexMartinsT/FinanceBot.git",
+                    repo_branch="main",
+                    auto_clone_missing=True,
                     credentials_key="financeiro_principal",
                     notes="Instancia base do FinanceiroAPP",
                 ).sanitize(),
@@ -45,6 +48,9 @@ class AppSettingsStore:
                     app_dir=r"C:\AnaBot",
                     start_args=["main.py", "--server", "--no-browser"],
                     route_prefix="anabot",
+                    repo_url="",
+                    repo_branch="main",
+                    auto_clone_missing=False,
                     credentials_key="anabot_principal",
                     notes="Instancia base do anaBot",
                 ).sanitize(),
@@ -72,14 +78,17 @@ class AppSettingsStore:
             backend_default = legacy["financeiro_url"]
             app_default = legacy["financeiro_dir"]
             prefix_default = "financeiro"
+            repo_default = "https://github.com/AlleexMartinsT/FinanceBot.git"
         elif inst_type == "anabot":
             backend_default = legacy["anabot_url"]
             app_default = legacy["anabot_dir"]
             prefix_default = "anabot"
+            repo_default = ""
         else:
             backend_default = ""
             app_default = ""
             prefix_default = str(item.get("instance_id", "")).strip() or "instancia"
+            repo_default = ""
 
         start_args = item.get("start_args")
         if not isinstance(start_args, list):
@@ -95,6 +104,9 @@ class AppSettingsStore:
             app_dir=str(item.get("app_dir", app_default)).strip() or app_default,
             start_args=[str(x) for x in start_args],
             route_prefix=str(item.get("route_prefix", prefix_default)).strip() or prefix_default,
+            repo_url=(str(item.get("repo_url", "")).strip() or repo_default),
+            repo_branch=str(item.get("repo_branch", "main")).strip() or "main",
+            auto_clone_missing=bool(item.get("auto_clone_missing", inst_type == "financeiro")),
             credentials_key=str(item.get("credentials_key", "")).strip(),
             notes=str(item.get("notes", "")).strip(),
         ).sanitize()
@@ -174,6 +186,9 @@ class AppSettingsStore:
                     "app_dir": i.app_dir,
                     "start_args": list(i.start_args or []),
                     "route_prefix": i.route_prefix,
+                    "repo_url": i.repo_url,
+                    "repo_branch": i.repo_branch,
+                    "auto_clone_missing": bool(i.auto_clone_missing),
                     "credentials_key": i.credentials_key,
                     "notes": i.notes,
                 }
@@ -181,4 +196,3 @@ class AppSettingsStore:
             ],
         }
         self.path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
-
