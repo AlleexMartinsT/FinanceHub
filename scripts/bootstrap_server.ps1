@@ -104,7 +104,8 @@ Write-Host "[Bootstrap] Bootstrap concluido com sucesso."
 Write-Host "[Bootstrap] Execute: $InstallDir\run_hub.bat"
 
 if ($RunHub) {
-  Write-Host "[Bootstrap] Iniciando HUB..."
+  Write-Host "[Bootstrap] Limpando tela e iniciando HUB..."
+  Start-Sleep -Milliseconds 500
+  Clear-Host
   & "$InstallDir\run_hub.bat"
 }
-

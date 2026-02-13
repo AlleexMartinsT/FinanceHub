@@ -11,10 +11,10 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
+cls
 echo [Hub] Iniciando FinanceHub...
 ".venv\Scripts\python.exe" "src\main.py"
 set ERR=%ERRORLEVEL%
 echo [Hub] Encerrado com codigo %ERR%
 pause
 exit /b %ERR%
-
