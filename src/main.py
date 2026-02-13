@@ -10,12 +10,32 @@ from storage.settings import AppSettingsStore
 from web.server import HubHttpServer
 
 
+def _current_commit(base_dir: Path) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(base_dir),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        out = (proc.stdout or "").strip()
+        return out if out else "-"
+    except Exception:
+        return "-"
+
+
 def _restart_process(base_dir: Path):
     print("[Hub Updater] Reiniciando processo do HUB")
     # Reinicio explicito do entrypoint evita cair em modo interativo.
     entrypoint = Path(__file__).resolve()
     args = [sys.executable, str(entrypoint)]
-    subprocess.Popen(args, cwd=str(base_dir))
+    env = os.environ.copy()
+    try:
+        env["HUB_UPDATE_COUNT"] = str(int(env.get("HUB_UPDATE_COUNT", "0")) + 1)
+    except Exception:
+        env["HUB_UPDATE_COUNT"] = "1"
+    subprocess.Popen(args, cwd=str(base_dir), env=env)
     os._exit(0)
 
 
@@ -37,6 +57,12 @@ def main() -> None:
         pass
     settings = AppSettingsStore(base_dir=base_dir)
     config = settings.load()
+    try:
+        update_count = int(os.environ.get("HUB_UPDATE_COUNT", "0"))
+    except Exception:
+        update_count = 0
+    commit = _current_commit(base_dir)
+    print(f"[Hub] Build: {commit} | Auto-update restarts in this CMD: {update_count}")
     _check_sync(config)
 
     runtime = InstanceRuntimeManager(instances=config.instances)
