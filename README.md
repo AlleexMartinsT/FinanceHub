@@ -1,83 +1,99 @@
 # FinanceAnaHub
 
-Projeto novo para integrar os fluxos do `financeiroAPP` e do `anaBot` em um unico servidor web com suporte a multiplas instancias.
+FinanceAnaHub is a gateway/orchestrator for multiple bot instances (for example `FinanceBot` and `AnaBot`) in a single web entry point.
 
-## Objetivo
+## What This Project Does
 
-- Manter `financeiroAPP` e `anaBot` intactos como backup.
-- Construir uma base nova orientada a instancias.
-- Permitir execucao simultanea de diferentes fluxos no mesmo painel.
+- Provides one central web access point.
+- Proxies each configured instance by route prefix.
+- Auto-starts enabled backends.
+- Can auto-clone missing backend repositories on first run.
+- Supports Git-based auto-update for the Hub itself.
 
-## Estrutura inicial
+## Folder Structure
 
-- `src/main.py`: bootstrap do hub.
-- `src/core/`: motor comum de execucao.
-- `src/instances/`: definicoes por instancia.
-- `src/adapters/`: adaptadores para importar logica existente.
-- `src/web/`: painel web unificado.
-- `src/storage/`: persistencia local.
-- `docs/integration_plan.md`: plano tecnico de migracao.
+- `src/main.py`: Hub bootstrap and lifecycle.
+- `src/web/`: HTTP gateway/proxy server.
+- `src/instances/`: instance models.
+- `src/storage/`: settings persistence (`instances.json`).
+- `scripts/bootstrap_server.ps1`: first-install bootstrap script.
+- `run_hub.bat`: production start script.
+- `update_hub.bat`: manual Git update helper.
 
-## Como executar
+## Quick Start (Local)
 
 ```bash
 cd C:\Users\vendas\Desktop\FinanceAnaHub
 python src/main.py
 ```
 
-## Instalacao padrao (servidor)
+Default Hub URL:
 
-Opcao recomendada (instalacao limpa com verificacao de pre-requisitos):
+- `http://127.0.0.1:8877`
 
-1. Rode no PowerShell (Administrador):
+## Clean First Installation (Server, Recommended)
 
-```bash
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/AlleexMartinsT/FinanceHub/main/scripts/bootstrap_server.ps1' -OutFile 'C:\bootstrap_financehub.ps1'; ^
-   powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
+Use PowerShell as Administrator:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/AlleexMartinsT/FinanceHub/main/scripts/bootstrap_server.ps1' -OutFile 'C:\bootstrap_financehub.ps1'; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
 ```
 
-O bootstrap faz:
+What bootstrap does:
 
-- verificacao de `git`, `python` e acesso ao GitHub
-- tentativa de instalacao automatica via `winget` quando faltar `git/python`
-- clone/update do HUB em `C:\FinanceHub`
-- criacao da `.venv`
-- start do `run_hub.bat`
+- Checks `git`, `python`, and GitHub connectivity.
+- Tries auto-install for missing `git/python` using `winget`.
+- Clones/updates Hub into `C:\FinanceHub`.
+- Creates virtual environment (`.venv`).
+- Starts the Hub with `run_hub.bat`.
 
-Opcao manual:
+## Manual Installation (Server)
 
-1. Clone somente o HUB:
+1. Clone Hub:
 
 ```bash
 cd C:\
 git clone https://github.com/AlleexMartinsT/FinanceHub.git C:\FinanceHub
 ```
 
-2. Rode `C:\FinanceHub\run_hub.bat`
+2. Start Hub:
 
-Por padrao, a instancia `financeiro_principal` tenta usar `C:\FinanceBot`.
-Se a pasta nao existir e `auto_clone_missing=true`, o HUB clona automaticamente o repositorio configurado em `repo_url` para `C:\FinanceBot`.
+```bash
+C:\FinanceHub\run_hub.bat
+```
 
-Painel padrao:
+## First-Run Behavior for FinanceBot
 
-- `http://127.0.0.1:8877`
+By default, `financeiro_principal` uses:
 
-Cada instancia abre em sua propria rota definida no `route_prefix`, por exemplo:
+- `app_dir = C:\FinanceBot`
+- `backend_url = http://127.0.0.1:8765`
+- `auto_clone_missing = true`
+
+If `C:\FinanceBot` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
+
+## Routes
+
+Each instance is served by its own `route_prefix`.
+
+Examples:
 
 - `http://127.0.0.1:8877/financeiro/`
 - `http://127.0.0.1:8877/anabot/`
 
-Arquivo de instancias:
+## Configuration File
 
-- `C:\Users\vendas\Desktop\FinanceAnaHub\data\instances.json`
+Settings file:
 
-Campos por instancia no `instances.json`:
+- `C:\FinanceHub\data\instances.json` (server)
+
+Per-instance fields:
 
 - `instance_id`
 - `display_name`
-- `instance_type` (`financeiro` ou `anabot`)
+- `instance_type` (`financeiro` or `anabot`)
 - `enabled`
+- `interval_seconds`
 - `backend_url`
 - `app_dir`
 - `start_args`
@@ -85,36 +101,40 @@ Campos por instancia no `instances.json`:
 - `repo_url`
 - `repo_branch`
 - `auto_clone_missing`
-- `interval_seconds`
 - `credentials_key`
 - `notes`
 
-## Auto-update do HUB (Git)
+## Hub Auto-Update (Git)
 
-O HUB possui updater proprio via Git, com reinicio automatico quando houver novo commit.
+Hub supports automatic Git updates with process restart.
 
-Chaves no `instances.json`:
+Global settings in `instances.json`:
 
-- `auto_update_enabled`: `true`/`false`
-- `auto_update_interval_minutes`: intervalo de checagem
-- `auto_update_remote`: remoto Git (ex.: `origin`)
-- `auto_update_branch`: branch (ex.: `main`)
+- `auto_update_enabled`
+- `auto_update_interval_minutes`
+- `auto_update_remote`
+- `auto_update_branch`
 
-Importante:
+Requirements:
 
-- O HUB deve estar em um clone Git valido (pasta com `.git`).
-- O servidor precisa ter `git` instalado e acesso ao repositorio remoto.
+- Hub must run from a valid Git clone (`.git` folder present).
+- `git` must be available in PATH for the runtime user.
 
-## Fase 1 concluida
+## Operations
 
-- Configuracao por instancia em JSON.
-- Runtime manager com loop por instancia.
-- Controles de `Executar agora` e `Parar`.
-- Endpoint/API e painel web basico para status.
+Start:
 
-## Backups
+```bash
+C:\FinanceHub\run_hub.bat
+```
 
-As pastas abaixo permanecem isoladas e sem alteracoes:
+Manual update:
 
-- `C:\Users\vendas\Desktop\financeiroAPP`
-- `C:\Users\vendas\Desktop\anaBot`
+```bash
+C:\FinanceHub\update_hub.bat
+```
+
+## Notes
+
+- Keep backend services bound to localhost (`127.0.0.1`) when possible.
+- Expose only Hub port externally (for example `8877`) for safer topology.
