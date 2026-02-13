@@ -23,7 +23,7 @@ FinanceAnaHub is a gateway/orchestrator for multiple bot instances (for example 
 ## Quick Start (Local)
 
 ```bash
-cd C:\Users\vendas\Desktop\FinanceAnaHub
+cd <LOCAL_REPO_PATH>
 python src/main.py
 ```
 
@@ -36,7 +36,7 @@ Default Hub URL:
 Use PowerShell as Administrator:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/AlleexMartinsT/FinanceHub/main/scripts/bootstrap_server.ps1' -OutFile 'C:\bootstrap_financehub.ps1'; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri '<HUB_BOOTSTRAP_PS1_RAW_URL>' -OutFile 'C:\bootstrap_financehub.ps1'; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
 ```
 
 What bootstrap does:
@@ -53,7 +53,7 @@ What bootstrap does:
 
 ```bash
 cd C:\
-git clone https://github.com/AlleexMartinsT/FinanceHub.git C:\FinanceHub
+git clone <HUB_REPO_URL> C:\FinanceHub
 ```
 
 2. Start Hub:
