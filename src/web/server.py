@@ -62,10 +62,76 @@ class HubHttpServer:
             return False
 
     @staticmethod
+    def _system_python_cmd() -> list[str]:
+        if shutil.which("py"):
+            return ["py", "-3"]
+        if shutil.which("python"):
+            return ["python"]
+        return [sys.executable]
+
+    @staticmethod
     def _python_cmd(app_dir: str) -> str:
         app_path = Path(app_dir)
         venv_python = app_path / ".venv" / "Scripts" / "python.exe"
         return str(venv_python) if venv_python.exists() else sys.executable
+
+    def _ensure_backend_runtime(self, app_dir: str) -> bool:
+        app_path = Path(app_dir)
+        if not app_path.exists():
+            return False
+
+        venv_python = app_path / ".venv" / "Scripts" / "python.exe"
+        if not venv_python.exists():
+            cmd = self._system_python_cmd() + ["-m", "venv", ".venv"]
+            proc = subprocess.run(cmd, cwd=str(app_path), text=True, capture_output=True, check=False)
+            if proc.returncode != 0:
+                out = (proc.stderr or proc.stdout or "").strip()
+                print(f"[Runtime] Falha ao criar venv em {app_path}: {out}")
+                return False
+
+        req_file = app_path / "requirements.txt"
+        marker = app_path / ".venv" / ".deps_ok"
+        must_install = False
+        if req_file.exists():
+            if not marker.exists():
+                must_install = True
+            else:
+                try:
+                    must_install = marker.stat().st_mtime < req_file.stat().st_mtime
+                except Exception:
+                    must_install = True
+
+        if must_install:
+            pip_up = subprocess.run(
+                [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"],
+                cwd=str(app_path),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if pip_up.returncode != 0:
+                out = (pip_up.stderr or pip_up.stdout or "").strip()
+                print(f"[Runtime] Falha ao atualizar pip em {app_path}: {out}")
+                return False
+
+            pip_req = subprocess.run(
+                [str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"],
+                cwd=str(app_path),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if pip_req.returncode != 0:
+                out = (pip_req.stderr or pip_req.stdout or "").strip()
+                print(f"[Runtime] Falha ao instalar requisitos em {app_path}: {out}")
+                return False
+            try:
+                marker.write_text("ok", encoding="utf-8")
+            except Exception:
+                pass
+            print(f"[Runtime] Dependencias preparadas para {app_path}")
+
+        return True
 
     def _start_app_if_needed(self, key: str, app_dir: str, args: list[str]) -> bool:
         with self._proc_lock:
@@ -73,6 +139,8 @@ class HubHttpServer:
             if proc is not None and proc.poll() is None:
                 return True
             try:
+                if not self._ensure_backend_runtime(app_dir):
+                    return False
                 cmd = [self._python_cmd(app_dir)] + list(args or ["main.py"])
                 self._procs[key] = subprocess.Popen(cmd, cwd=app_dir)
                 return True

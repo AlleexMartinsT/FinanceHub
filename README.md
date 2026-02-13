@@ -52,6 +52,11 @@ What bootstrap does:
 - Creates virtual environment (`.venv`).
 - Starts the Hub with `run_hub.bat`.
 
+At first backend startup, the Hub can also:
+
+- create backend `.venv` if missing
+- install backend dependencies from `requirements.txt`
+
 ## Manual Installation (Server)
 
 1. Clone Hub:
