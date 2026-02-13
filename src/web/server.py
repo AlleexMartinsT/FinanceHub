@@ -89,6 +89,28 @@ class HubHttpServer:
             time.sleep(0.6)
         return False
 
+    def warm_up_enabled_backends(self) -> None:
+        cfg = self.settings.load()
+        enabled_types = {str(i.instance_type).lower() for i in cfg.instances if bool(i.enabled)}
+
+        if "financeiro" in enabled_types:
+            ok = self._ensure_backend_online(
+                key="financeiro",
+                backend_url=cfg.financeiro_panel_url,
+                app_dir=cfg.financeiro_app_dir,
+                args=["main.py", "--server", "--no-browser"],
+            )
+            print(f"[Warmup] Financeiro: {'OK' if ok else 'FALHA'}")
+
+        if "anabot" in enabled_types:
+            ok = self._ensure_backend_online(
+                key="anabot",
+                backend_url=cfg.anabot_panel_url,
+                app_dir=cfg.anabot_app_dir,
+                args=["main.py"],
+            )
+            print(f"[Warmup] AnaBot: {'OK' if ok else 'FALHA'}")
+
     @staticmethod
     def _backend_target(base_url: str, inbound_path: str, prefix: str) -> str:
         # inbound_path ex: /financeiro/api/status -> /api/status
@@ -325,4 +347,3 @@ def _render_home_html() -> str:
   </div>
 </body>
 </html>"""
-

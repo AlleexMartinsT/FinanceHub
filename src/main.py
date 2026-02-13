@@ -50,6 +50,7 @@ def main() -> None:
     )
     updater.start()
     server.start()
+    server.warm_up_enabled_backends()
     print(f"FinanceAnaHub online em http://{config.panel_host}:{config.panel_port}")
     print("Ctrl+C para encerrar")
     try:
