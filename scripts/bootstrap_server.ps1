@@ -12,14 +12,27 @@ function Test-Command {
   return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-function Invoke-Python {
-  param([string[]]$Args)
+function Get-PythonRunner {
   if (Test-Command "py") {
-    & py -3 @Args
-  } elseif (Test-Command "python") {
-    & python @Args
-  } else {
-    throw "Python não encontrado."
+    return @("py", "-3")
+  }
+  if (Test-Command "python") {
+    return @("python")
+  }
+  throw "Python nao encontrado."
+}
+
+function Invoke-PythonCmd {
+  param([string[]]$PyArgs)
+  $runner = Get-PythonRunner
+  $exe = $runner[0]
+  $prefix = @()
+  if ($runner.Length -gt 1) {
+    $prefix = $runner[1..($runner.Length - 1)]
+  }
+  & $exe @prefix @PyArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "Falha ao executar Python: $exe $($prefix + $PyArgs -join ' ')"
   }
 }
 
@@ -27,9 +40,9 @@ function Ensure-Git {
   if (Test-Command "git") {
     return
   }
-  Write-Host "[Bootstrap] Git não encontrado. Tentando instalar via winget..."
+  Write-Host "[Bootstrap] Git nao encontrado. Tentando instalar via winget..."
   if (-not (Test-Command "winget")) {
-    throw "Git ausente e winget indisponível. Instale Git manualmente."
+    throw "Git ausente e winget indisponivel. Instale Git manualmente."
   }
   & winget install --id Git.Git -e --silent --accept-source-agreements --accept-package-agreements
   if (-not (Test-Command "git")) {
@@ -41,9 +54,9 @@ function Ensure-Python {
   if ((Test-Command "py") -or (Test-Command "python")) {
     return
   }
-  Write-Host "[Bootstrap] Python não encontrado. Tentando instalar via winget..."
+  Write-Host "[Bootstrap] Python nao encontrado. Tentando instalar via winget..."
   if (-not (Test-Command "winget")) {
-    throw "Python ausente e winget indisponível. Instale Python 3 manualmente."
+    throw "Python ausente e winget indisponivel. Instale Python 3 manualmente."
   }
   & winget install --id Python.Python.3.12 -e --silent --accept-source-agreements --accept-package-agreements
   if (-not ((Test-Command "py") -or (Test-Command "python"))) {
@@ -60,13 +73,13 @@ function Ensure-GitHub-Access {
   }
 }
 
-Write-Host "[Bootstrap] Verificando pré-requisitos..."
+Write-Host "[Bootstrap] Verificando pre-requisitos..."
 Ensure-Git
 Ensure-Python
 Ensure-GitHub-Access
 
 if (Test-Path (Join-Path $InstallDir ".git")) {
-  Write-Host "[Bootstrap] HUB já existe. Atualizando..."
+  Write-Host "[Bootstrap] HUB ja existe. Atualizando..."
   & git -C $InstallDir fetch origin $Branch
   & git -C $InstallDir pull --ff-only origin $Branch
 } else {
@@ -81,13 +94,13 @@ Set-Location $InstallDir
 
 if (-not (Test-Path ".venv\Scripts\python.exe")) {
   Write-Host "[Bootstrap] Criando ambiente virtual..."
-  Invoke-Python -Args @("-m", "venv", ".venv")
+  Invoke-PythonCmd -PyArgs @("-m", "venv", ".venv")
 }
 
 Write-Host "[Bootstrap] Atualizando pip..."
 & ".\.venv\Scripts\python.exe" -m pip install --upgrade pip
 
-Write-Host "[Bootstrap] Bootstrap concluído com sucesso."
+Write-Host "[Bootstrap] Bootstrap concluido com sucesso."
 Write-Host "[Bootstrap] Execute: $InstallDir\run_hub.bat"
 
 if ($RunHub) {
