@@ -36,8 +36,13 @@ Default Hub URL:
 Use PowerShell as Administrator:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri '<HUB_BOOTSTRAP_PS1_RAW_URL>' -OutFile 'C:\bootstrap_financehub.ps1'; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/AlleexMartinsT/FinanceHub/main/scripts/bootstrap_server.ps1' -OutFile 'C:\bootstrap_financehub.ps1'; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
 ```
+
+Note:
+
+- For this repository, the bootstrap URL above is the same for all users.
+- Use placeholders only if you are creating documentation for a reusable template or for another repository.
 
 What bootstrap does:
 
@@ -53,7 +58,7 @@ What bootstrap does:
 
 ```bash
 cd C:\
-git clone <HUB_REPO_URL> C:\FinanceHub
+git clone https://github.com/AlleexMartinsT/FinanceHub.git C:\FinanceHub
 ```
 
 2. Start Hub:
