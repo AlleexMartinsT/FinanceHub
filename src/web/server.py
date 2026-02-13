@@ -208,6 +208,7 @@ class HubHttpServer:
         except Exception:
             return body
 
+        # API and auth routes
         text = text.replace('"/api/', f'"/{prefix}/api/')
         text = text.replace("'/api/", f"'/{prefix}/api/")
         text = text.replace('fetch("/api/', f'fetch("/{prefix}/api/')
@@ -217,6 +218,20 @@ class HubHttpServer:
         text = text.replace('href="/login"', f'href="/{prefix}/login"')
         text = text.replace('action="/login"', f'action="/{prefix}/login"')
         text = text.replace('action="/logout"', f'action="/{prefix}/logout"')
+
+        # Static/media routes commonly used by FinanceBot UI
+        root_paths = [
+            "/store-image",
+            "/favicon.ico",
+            "/assets/",
+            "/static/",
+        ]
+        for p in root_paths:
+            text = text.replace(f'"{p}', f'"/{prefix}{p}')
+            text = text.replace(f"'{p}", f"'/{prefix}{p}")
+            text = text.replace(f"url({p}", f"url(/{prefix}{p}")
+            text = text.replace(f'url("{p}', f'url("/{prefix}{p}')
+            text = text.replace(f"url('{p}", f"url('/{prefix}{p}")
 
         return text.encode("utf-8")
 
