@@ -400,58 +400,78 @@ class HubHttpServer:
 
 def _base_styles() -> str:
     return """
-    :root{--bg:#f2f3f6;--ink:#1b1b1b;--blue:#1769e8;--core:#8fd4f8}
-    body{font-family:Arial,sans-serif;background:var(--bg);margin:0;padding:20px;color:var(--ink)}
-    .container{max-width:980px;margin:0 auto;text-align:center}
-    .title{font-size:56px;font-weight:900;line-height:1.05;margin:10px 0 4px}
-    .subtitle{margin:0 0 18px;color:#5b5b5b}
-    .hub-wrap{display:flex;justify-content:center;align-items:center}
-    .hub-diagram{position:relative;width:760px;height:760px;max-width:94vw;max-height:94vw}
-    .node{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y)));display:flex;align-items:center;justify-content:center;text-decoration:none;color:#222}
-    .spoke{width:138px;height:138px;border-radius:999px;background:#fff;border:8px solid var(--c);font-size:30px;font-weight:700;line-height:1.1;box-sizing:border-box;box-shadow:0 1px 0 #0000000f}
-    .spoke small{display:block;font-size:12px;font-weight:600;color:#555;margin-top:4px}
-    .connector{position:absolute;left:50%;top:50%;width:4px;height:130px;background:var(--c);transform:translate(-50%,-50%) rotate(var(--a)) translateY(calc(-1 * var(--r)));transform-origin:center}
-    .hub-shell{position:absolute;left:50%;top:50%;width:278px;height:278px;border-radius:999px;transform:translate(-50%,-50%);background:conic-gradient(#5e8ad8 0 60deg,#43c2a8 60deg 120deg,#bad360 120deg 180deg,#f0a66e 180deg 240deg,#b890e7 240deg 300deg,#5e8ad8 300deg 360deg)}
-    .hub-core{position:absolute;left:50%;top:50%;width:250px;height:250px;border-radius:999px;transform:translate(-50%,-50%);background:var(--blue);display:flex;align-items:center;justify-content:center}
-    .hub-center{width:118px;height:118px;border-radius:999px;background:var(--core);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700}
-    .hub-label-top{position:absolute;left:50%;top:68px;transform:translateX(-50%) rotate(-9deg);color:#fff;font-weight:700}
-    .hub-label-bottom{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);color:#fff;font-weight:700}
-    .hub-actions{margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-    .btn{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;background:#1769e8;color:#fff;text-decoration:none;display:inline-block;font-weight:700}
-    .btn.alt{background:#5d6f7f}
+    :root{--bg:#eff0f2;--ink:#131313;--hub:#176fe5;--hub-center:#9cdaf8}
+    body{font-family:Arial,sans-serif;background:var(--bg);margin:0;padding:16px;color:var(--ink)}
+    .container{max-width:900px;margin:0 auto;text-align:center}
+    .title-wrap{display:inline-block;position:relative;margin-top:4px}
+    .title-wrap::after{content:"";position:absolute;left:-8px;right:-8px;height:14px;bottom:6px;background:#c8f1ff;z-index:0}
+    .title{position:relative;z-index:1;font-size:58px;font-weight:900;line-height:1;margin:0}
+    .hub-wrap{display:flex;justify-content:center;align-items:center;margin-top:8px}
+    .hub-diagram{position:relative;width:740px;height:740px;max-width:96vw;max-height:96vw}
+    .node{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y)));display:flex;align-items:center;justify-content:center;text-decoration:none;color:#232323}
+    .spoke{width:132px;height:132px;border-radius:999px;background:#fff;border:7px solid var(--c);font-size:22px;font-weight:700;line-height:1.08;box-sizing:border-box}
+    .spoke small{display:block;font-size:11px;font-weight:600;color:#666;margin-top:2px}
+    .connector{position:absolute;left:50%;top:50%;width:5px;height:122px;background:var(--c);transform:translate(-50%,-50%) rotate(var(--a)) translateY(-190px);transform-origin:center}
+    .hub-shell{position:absolute;left:50%;top:50%;width:252px;height:252px;border-radius:999px;transform:translate(-50%,-50%);background:conic-gradient(#5f87d9 0 60deg,#45c3ac 60deg 120deg,#b6d45b 120deg 180deg,#f2ac73 180deg 240deg,#ba8fe8 240deg 300deg,#5f87d9 300deg 360deg)}
+    .hub-core{position:absolute;left:50%;top:50%;width:236px;height:236px;border-radius:999px;transform:translate(-50%,-50%);background:var(--hub);display:flex;align-items:center;justify-content:center}
+    .hub-center{width:116px;height:116px;border-radius:999px;background:var(--hub-center);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:38px;line-height:1.02}
+    .hub-label-top{position:absolute;left:50%;top:64px;transform:translateX(-50%) rotate(-8deg);color:#fff;font-size:31px;font-weight:700}
+    .hub-label-bottom{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);color:#fff;font-size:31px;font-weight:700}
     @media (max-width:760px){
-      .title{font-size:42px}
-      .spoke{width:112px;height:112px;font-size:22px;border-width:6px}
-      .connector{height:104px}
-      .hub-shell{width:228px;height:228px}
-      .hub-core{width:204px;height:204px}
-      .hub-center{width:98px;height:98px}
-      .hub-label-top{top:56px}
-      .hub-label-bottom{bottom:48px}
+      .title{font-size:44px}
+      .spoke{width:106px;height:106px;font-size:23px;border-width:6px}
+      .spoke small{font-size:10px}
+      .connector{height:95px;transform:translate(-50%,-50%) rotate(var(--a)) translateY(-152px)}
+      .hub-shell{width:206px;height:206px}
+      .hub-core{width:192px;height:192px}
+      .hub-center{width:92px;height:92px;font-size:29px}
+      .hub-label-top{top:52px;font-size:22px}
+      .hub-label-bottom{bottom:44px;font-size:22px}
     }
     """
 
 
 def _render_home_html(instances: list[InstanceConfig]) -> str:
-    colors = ["#5e8ad8", "#e08dc8", "#45c2ad", "#b4d15a", "#f1ad77", "#b98be2", "#4db0f2", "#d39157"]
+    colors = ["#e08dc8", "#45c2ad", "#b4d15a", "#f1ad77", "#b98be2", "#5e8ad8"]
+    slot_angles = [-90, -30, 30, 90, 150, 210]
+    # fill to 6 spokes with placeholders for future modules
+    padded = list(instances[:6])
+    while len(padded) < 6:
+        padded.append(
+            InstanceConfig(
+                instance_id=f"placeholder_{len(padded)}",
+                display_name="Spoke page",
+                instance_type="module",
+                enabled=False,
+                route_prefix="",
+            )
+        )
+
     spokes = []
-    n = max(1, len(instances))
-    radius = 250
-    for i, inst in enumerate(instances):
-        angle_deg = -90 + (360 / n) * i
+    radius = 252
+    for i, inst in enumerate(padded):
+        angle_deg = slot_angles[i]
         angle = math.radians(angle_deg)
         x = int(math.cos(angle) * radius)
         y = int(math.sin(angle) * radius)
-        color = colors[i % len(colors)]
-        prefix = inst.route_prefix.strip("/")
-        name = inst.display_name
+        color = colors[i]
+        prefix = str(getattr(inst, "route_prefix", "") or "").strip("/")
+        name = str(getattr(inst, "display_name", "Spoke page"))
+        href = f"/{prefix}/" if prefix else "#"
+        inst_type = str(getattr(inst, "instance_type", "module"))
+        if not prefix:
+            spoke_tag = f'<a class="node spoke" style="pointer-events:none;opacity:.92;--x:{x}px;--y:{y}px;--c:{color}" href="#">'
+            spoke_close = "</a>"
+        else:
+            spoke_tag = f'<a class="node spoke" style="--x:{x}px;--y:{y}px;--c:{color}" href="{href}">'
+            spoke_close = "</a>"
         spokes.append(
             f"""
       <div class="connector" style="--a:{angle_deg}deg;--r:{radius}px;--c:{color}"></div>
-      <a class="node spoke" style="--x:{x}px;--y:{y}px;--c:{color}" href="/{prefix}/">
+      {spoke_tag}
         {name}
-        <small>{inst.instance_type}</small>
-      </a>
+        <small>{inst_type}</small>
+      {spoke_close}
 """
         )
     return """<!doctype html>
@@ -466,8 +486,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 </head>
 <body>
   <div class="container">
-    <h1 class="title">Hub MVA</h1>
-    <p class="subtitle">Hub and Spoke style navigation for all modules</p>
+    <div class="title-wrap"><h1 class="title">Hub MVA</h1></div>
     <div class="hub-wrap">
       <div class="hub-diagram">
 """ + "".join(spokes) + """
@@ -481,11 +500,6 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
           <div class="hub-label-bottom">FAQ</div>
         </div>
       </div>
-    </div>
-    <div class="hub-actions">
-      <a class="btn" href="#">Contact Us</a>
-      <a class="btn alt" href="#">FAQ</a>
-      <a class="btn alt" href="#">Customer Service</a>
     </div>
   </div>
 </body>
