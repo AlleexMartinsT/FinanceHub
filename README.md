@@ -27,6 +27,26 @@ python src/main.py
 
 ## Instalacao padrao (servidor)
 
+Opcao recomendada (instalacao limpa com verificacao de pre-requisitos):
+
+1. Rode no PowerShell (Administrador):
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/AlleexMartinsT/FinanceHub/main/scripts/bootstrap_server.ps1' -OutFile 'C:\bootstrap_financehub.ps1'; ^
+   powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\bootstrap_financehub.ps1' -RunHub"
+```
+
+O bootstrap faz:
+
+- verificacao de `git`, `python` e acesso ao GitHub
+- tentativa de instalacao automatica via `winget` quando faltar `git/python`
+- clone/update do HUB em `C:\FinanceHub`
+- criacao da `.venv`
+- start do `run_hub.bat`
+
+Opcao manual:
+
 1. Clone somente o HUB:
 
 ```bash
