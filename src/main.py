@@ -12,7 +12,9 @@ from web.server import HubHttpServer
 
 def _restart_process(base_dir: Path):
     print("[Hub Updater] Reiniciando processo do HUB")
-    args = [sys.executable] + sys.argv
+    # Reinicio explicito do entrypoint evita cair em modo interativo.
+    entrypoint = Path(__file__).resolve()
+    args = [sys.executable, str(entrypoint)]
     subprocess.Popen(args, cwd=str(base_dir))
     os._exit(0)
 
@@ -28,6 +30,11 @@ def _check_sync(config) -> None:
 
 def main() -> None:
     base_dir = Path(__file__).resolve().parent.parent
+    # Limpa a tela a cada start (inclusive apos auto-update/restart).
+    try:
+        os.system("cls" if os.name == "nt" else "clear")
+    except Exception:
+        pass
     settings = AppSettingsStore(base_dir=base_dir)
     config = settings.load()
     _check_sync(config)
