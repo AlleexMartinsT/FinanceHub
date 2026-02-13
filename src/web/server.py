@@ -400,8 +400,10 @@ class HubHttpServer:
 
 def _base_styles() -> str:
     return """
+    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;900&display=swap');
     :root{--bg:#eff0f2;--ink:#131313;--hub:#176fe5;--hub-center:#9cdaf8}
-    body{font-family:Arial,sans-serif;background:var(--bg);margin:0;padding:16px;color:var(--ink)}
+    body{font-family:'Lexend',sans-serif;background:var(--bg);margin:0;padding:16px;color:var(--ink)}
+    *{font-family:'Lexend',sans-serif}
     .container{max-width:900px;margin:0 auto;text-align:center}
     .title-wrap{display:inline-block;position:relative;margin-top:4px}
     .title-wrap::after{content:"";position:absolute;left:-8px;right:-8px;height:14px;bottom:6px;background:#c8f1ff;z-index:0}
@@ -409,24 +411,26 @@ def _base_styles() -> str:
     .hub-wrap{display:flex;justify-content:center;align-items:center;margin-top:8px}
     .hub-diagram{position:relative;width:740px;height:740px;max-width:96vw;max-height:96vw}
     .node{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y)));display:flex;align-items:center;justify-content:center;text-decoration:none;color:#232323}
-    .spoke{width:132px;height:132px;border-radius:999px;background:#fff;border:7px solid var(--c);font-size:22px;font-weight:700;line-height:1.08;box-sizing:border-box}
-    .spoke small{display:block;font-size:11px;font-weight:600;color:#666;margin-top:2px}
+    .spoke{width:132px;height:132px;border-radius:999px;background:#fff;border:7px solid var(--c);font-size:0;box-sizing:border-box;padding:14px;text-align:center}
+    .spoke-label{font-size:18px;font-weight:700;line-height:1.08;display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:100%;text-align:center}
     .connector{position:absolute;left:50%;top:50%;width:5px;height:122px;background:var(--c);transform:translate(-50%,-50%) rotate(var(--a)) translateY(-190px);transform-origin:center}
     .hub-shell{position:absolute;left:50%;top:50%;width:252px;height:252px;border-radius:999px;transform:translate(-50%,-50%);background:conic-gradient(#5f87d9 0 60deg,#45c3ac 60deg 120deg,#b6d45b 120deg 180deg,#f2ac73 180deg 240deg,#ba8fe8 240deg 300deg,#5f87d9 300deg 360deg)}
     .hub-core{position:absolute;left:50%;top:50%;width:236px;height:236px;border-radius:999px;transform:translate(-50%,-50%);background:var(--hub);display:flex;align-items:center;justify-content:center}
-    .hub-center{width:116px;height:116px;border-radius:999px;background:var(--hub-center);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:38px;line-height:1.02}
-    .hub-label-top{position:absolute;left:50%;top:64px;transform:translateX(-50%) rotate(-8deg);color:#fff;font-size:31px;font-weight:700}
-    .hub-label-bottom{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);color:#fff;font-size:31px;font-weight:700}
+    .hub-center{width:116px;height:116px;border-radius:999px;background:var(--hub-center);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:38px;line-height:1.02;color:#0f172a}
+    .hub-center small{font-size:16px;font-weight:700}
+    .hub-label-top{position:absolute;left:50%;top:66px;transform:translateX(-50%) rotate(-11deg);color:#fff;font-size:31px;font-weight:700;line-height:1}
+    .hub-label-bottom{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);color:#fff;font-size:34px;font-weight:700;line-height:1}
     @media (max-width:760px){
       .title{font-size:44px}
-      .spoke{width:106px;height:106px;font-size:23px;border-width:6px}
-      .spoke small{font-size:10px}
+      .spoke{width:106px;height:106px;border-width:6px;padding:10px}
+      .spoke-label{font-size:16px}
       .connector{height:95px;transform:translate(-50%,-50%) rotate(var(--a)) translateY(-152px)}
       .hub-shell{width:206px;height:206px}
       .hub-core{width:192px;height:192px}
-      .hub-center{width:92px;height:92px;font-size:29px}
-      .hub-label-top{top:52px;font-size:22px}
-      .hub-label-bottom{bottom:44px;font-size:22px}
+      .hub-center{width:92px;height:92px;font-size:30px}
+      .hub-center small{font-size:12px}
+      .hub-label-top{top:52px;font-size:24px}
+      .hub-label-bottom{bottom:44px;font-size:24px}
     }
     """
 
@@ -457,8 +461,14 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         color = colors[i]
         prefix = str(getattr(inst, "route_prefix", "") or "").strip("/")
         name = str(getattr(inst, "display_name", "Spoke page"))
+        parts = [p for p in name.split() if p]
+        if len(parts) >= 2:
+            label = f"{parts[0]}<br>{parts[1]}"
+        elif parts:
+            label = parts[0]
+        else:
+            label = "Spoke<br>page"
         href = f"/{prefix}/" if prefix else "#"
-        inst_type = str(getattr(inst, "instance_type", "module"))
         if not prefix:
             spoke_tag = f'<a class="node spoke" style="pointer-events:none;opacity:.92;--x:{x}px;--y:{y}px;--c:{color}" href="#">'
             spoke_close = "</a>"
@@ -469,8 +479,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             f"""
       <div class="connector" style="--a:{angle_deg}deg;--r:{radius}px;--c:{color}"></div>
       {spoke_tag}
-        {name}
-        <small>{inst_type}</small>
+        <span class="spoke-label">{label}</span>
       {spoke_close}
 """
         )
@@ -494,8 +503,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         <div class="hub-core">
           <div class="hub-label-top">Contact Us</div>
           <div class="hub-center">
-            <div>Customer</div>
-            <div>Service</div>
+            <small>Customer</small>
+            <small>Service</small>
           </div>
           <div class="hub-label-bottom">FAQ</div>
         </div>
