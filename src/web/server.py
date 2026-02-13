@@ -142,7 +142,12 @@ class HubHttpServer:
                 if not self._ensure_backend_runtime(app_dir):
                     return False
                 cmd = [self._python_cmd(app_dir)] + list(args or ["main.py"])
-                self._procs[key] = subprocess.Popen(cmd, cwd=app_dir)
+                self._procs[key] = subprocess.Popen(
+                    cmd,
+                    cwd=app_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
                 return True
             except Exception:
                 return False
