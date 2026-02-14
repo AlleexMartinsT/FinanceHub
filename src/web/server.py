@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -53,6 +54,10 @@ class HubHttpServer:
         self._thread: threading.Thread | None = None
         self._procs: dict[str, subprocess.Popen] = {}
         self._proc_lock = threading.Lock()
+        self._inst_updater_thread: threading.Thread | None = None
+        self._inst_updater_stop = threading.Event()
+        self._inst_updater_interval_minutes = 5
+        self._inst_updater_git_missing_logged = False
 
     @staticmethod
     def _url_online(url: str, timeout: float = 1.2) -> bool:
@@ -152,6 +157,128 @@ class HubHttpServer:
                 return True
             except Exception:
                 return False
+
+    @staticmethod
+    def _run_git(repo_dir: Path, *args: str) -> tuple[int, str]:
+        try:
+            env = os.environ.copy()
+            env["GIT_TERMINAL_PROMPT"] = "0"
+            proc = subprocess.run(
+                ["git", *args],
+                cwd=str(repo_dir),
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env,
+            )
+            out = (proc.stdout or proc.stderr or "").strip()
+            return proc.returncode, out
+        except Exception as exc:
+            return 1, str(exc)
+
+    def _restart_managed_instance(self, instance_id: str, app_dir: str, start_args: list[str]) -> bool:
+        with self._proc_lock:
+            proc = self._procs.get(instance_id)
+            if proc and proc.poll() is None:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=8)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                finally:
+                    self._procs.pop(instance_id, None)
+        return self._start_app_if_needed(instance_id, app_dir, start_args)
+
+    def _update_instance_repo_once(self, inst: InstanceConfig) -> None:
+        app_dir = Path(str(inst.app_dir or "")).resolve()
+        if not app_dir.exists():
+            return
+        if not (app_dir / ".git").exists():
+            return
+        branch = str(inst.repo_branch or "main").strip() or "main"
+        remote = "origin"
+
+        code, out = self._run_git(app_dir, "fetch", remote, branch)
+        if code != 0:
+            if out:
+                print(f"[Instance Updater] {inst.display_name}: falha no fetch: {out}")
+            return
+
+        code_l, local_head = self._run_git(app_dir, "rev-parse", "HEAD")
+        code_r, remote_head = self._run_git(app_dir, "rev-parse", f"{remote}/{branch}")
+        if code_l != 0 or code_r != 0:
+            return
+        local_head = (local_head or "").strip()
+        remote_head = (remote_head or "").strip()
+        if not local_head or not remote_head or local_head == remote_head:
+            return
+
+        print(
+            f"[Instance Updater] {inst.display_name}: nova versao detectada "
+            f"({local_head[:7]} -> {remote_head[:7]})"
+        )
+        code, out = self._run_git(app_dir, "pull", "--ff-only", remote, branch)
+        if code != 0:
+            if out:
+                print(f"[Instance Updater] {inst.display_name}: falha no pull: {out}")
+            return
+
+        code_n, new_head = self._run_git(app_dir, "rev-parse", "HEAD")
+        new_head = (new_head or "").strip() if code_n == 0 else ""
+        if not new_head or new_head == local_head:
+            return
+
+        print(f"[Instance Updater] {inst.display_name}: atualizacao aplicada para {new_head[:7]}")
+        restarted = self._restart_managed_instance(inst.instance_id, str(app_dir), list(inst.start_args or ["main.py"]))
+        if restarted:
+            print(f"[Instance Updater] {inst.display_name}: reiniciado com a nova versao")
+        else:
+            print(
+                f"[Instance Updater] {inst.display_name}: atualizado, mas nao foi possivel reiniciar automaticamente"
+            )
+
+    def _instance_updater_loop(self) -> None:
+        print(f"[Instance Updater] Ativo: intervalo={self._inst_updater_interval_minutes}min")
+        while not self._inst_updater_stop.is_set():
+            for _ in range(max(1, self._inst_updater_interval_minutes) * 60):
+                if self._inst_updater_stop.is_set():
+                    return
+                time.sleep(1)
+            if self._inst_updater_stop.is_set():
+                return
+
+            if shutil.which("git") is None:
+                if not self._inst_updater_git_missing_logged:
+                    print("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
+                    self._inst_updater_git_missing_logged = True
+                continue
+
+            try:
+                cfg = self.settings.load()
+            except Exception:
+                continue
+
+            for inst in cfg.instances:
+                if not inst.enabled:
+                    continue
+                self._update_instance_repo_once(inst)
+
+    def start_instance_updater(self, enabled: bool, interval_minutes: int) -> None:
+        self._inst_updater_stop.clear()
+        self._inst_updater_interval_minutes = max(1, int(interval_minutes or 5))
+        if not enabled:
+            return
+        if self._inst_updater_thread and self._inst_updater_thread.is_alive():
+            return
+        self._inst_updater_thread = threading.Thread(
+            target=self._instance_updater_loop,
+            daemon=True,
+            name="instance-updater",
+        )
+        self._inst_updater_thread.start()
 
     def _clone_if_needed(self, inst: InstanceConfig) -> bool:
         app_path = Path(str(inst.app_dir or ""))
@@ -404,6 +531,7 @@ class HubHttpServer:
             self._thread.join()
 
     def stop(self):
+        self._inst_updater_stop.set()
         if self.httpd:
             self.httpd.shutdown()
             self.httpd.server_close()
