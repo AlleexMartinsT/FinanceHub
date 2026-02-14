@@ -42,15 +42,15 @@ class AppSettingsStore:
                     instance_id="anabot_principal",
                     display_name="AnaBot Principal",
                     instance_type="anabot",
-                    enabled=False,
+                    enabled=True,
                     interval_seconds=1800,
                     backend_url="http://127.0.0.1:8865",
                     app_dir=r"C:\AnaBot",
-                    start_args=["main.py", "--server", "--no-browser"],
+                    start_args=["main.py", "--server", "--host", "127.0.0.1", "--port", "8865"],
                     route_prefix="anabot",
-                    repo_url="",
+                    repo_url="https://github.com/AlleexMartinsT/Botana.git",
                     repo_branch="main",
-                    auto_clone_missing=False,
+                    auto_clone_missing=True,
                     credentials_key="anabot_principal",
                     notes="Instancia base do anaBot",
                 ).sanitize(),
@@ -70,7 +70,9 @@ class AppSettingsStore:
     def _default_start_args(instance_type: str) -> list[str]:
         if instance_type == "financeiro":
             return ["main.py", "--server", "--no-browser"]
-        return ["main.py", "--server", "--no-browser"]
+        if instance_type == "anabot":
+            return ["main.py", "--server", "--host", "127.0.0.1", "--port", "8865"]
+        return ["main.py", "--server"]
 
     def _parse_instance(self, item: dict, legacy: dict) -> InstanceConfig:
         inst_type = str(item.get("instance_type", "")).strip().lower()
@@ -83,7 +85,7 @@ class AppSettingsStore:
             backend_default = legacy["anabot_url"]
             app_default = legacy["anabot_dir"]
             prefix_default = "anabot"
-            repo_default = ""
+            repo_default = "https://github.com/AlleexMartinsT/Botana.git"
         else:
             backend_default = ""
             app_default = ""
@@ -93,6 +95,13 @@ class AppSettingsStore:
         start_args = item.get("start_args")
         if not isinstance(start_args, list):
             start_args = self._default_start_args(inst_type)
+        if inst_type == "anabot":
+            clean_args = [str(x).strip() for x in start_args if str(x).strip()]
+            if "--no-browser" in clean_args:
+                clean_args = [x for x in clean_args if x != "--no-browser"]
+            if not clean_args:
+                clean_args = self._default_start_args(inst_type)
+            start_args = clean_args
 
         cfg = InstanceConfig(
             instance_id=str(item.get("instance_id", "")).strip(),
