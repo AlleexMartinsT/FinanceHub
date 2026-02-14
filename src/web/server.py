@@ -242,6 +242,8 @@ class HubHttpServer:
 
     def _instance_updater_loop(self) -> None:
         print(f"[Instance Updater] Ativo: intervalo={self._inst_updater_interval_minutes}min")
+        # Primeira checagem imediata, igual comportamento esperado de startup.
+        self._run_instance_update_cycle()
         while not self._inst_updater_stop.is_set():
             for _ in range(max(1, self._inst_updater_interval_minutes) * 60):
                 if self._inst_updater_stop.is_set():
@@ -249,22 +251,22 @@ class HubHttpServer:
                 time.sleep(1)
             if self._inst_updater_stop.is_set():
                 return
+            self._run_instance_update_cycle()
 
-            if shutil.which("git") is None:
-                if not self._inst_updater_git_missing_logged:
-                    print("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
-                    self._inst_updater_git_missing_logged = True
+    def _run_instance_update_cycle(self) -> None:
+        if shutil.which("git") is None:
+            if not self._inst_updater_git_missing_logged:
+                print("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
+                self._inst_updater_git_missing_logged = True
+            return
+        try:
+            cfg = self.settings.load()
+        except Exception:
+            return
+        for inst in cfg.instances:
+            if not inst.enabled:
                 continue
-
-            try:
-                cfg = self.settings.load()
-            except Exception:
-                continue
-
-            for inst in cfg.instances:
-                if not inst.enabled:
-                    continue
-                self._update_instance_repo_once(inst)
+            self._update_instance_repo_once(inst)
 
     def start_instance_updater(self, enabled: bool, interval_minutes: int) -> None:
         self._inst_updater_stop.clear()
