@@ -276,7 +276,7 @@ class HubHttpServer:
     def _run_instance_update_cycle(self) -> None:
         if shutil.which("git") is None:
             if not self._inst_updater_git_missing_logged:
-                    self._diag("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
+                self._diag("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
                 self._inst_updater_git_missing_logged = True
             return
         try:
