@@ -66,7 +66,7 @@ class InstanceWorker:
         self.state.last_started_at = datetime.now().isoformat(timespec="seconds")
         self.state.set_status("running", "Executando ciclo")
         try:
-            # Placeholder da Fase 1: aqui sera acoplado adapter financeiro/anabot.
+            # Placeholder da Fase 1: aqui sera acoplado adapter financeiro/botana.
             time.sleep(1)
             self.state.runs_ok += 1
             self.state.set_status("idle", "Ciclo finalizado com sucesso")

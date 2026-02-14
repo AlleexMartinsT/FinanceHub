@@ -39,20 +39,20 @@ class AppSettingsStore:
                     notes="Instancia base do FinanceiroAPP",
                 ).sanitize(),
                 InstanceConfig(
-                    instance_id="anabot_principal",
-                    display_name="AnaBot Principal",
-                    instance_type="anabot",
+                    instance_id="botana_principal",
+                    display_name="Botana Principal",
+                    instance_type="botana",
                     enabled=True,
                     interval_seconds=1800,
                     backend_url="http://127.0.0.1:8865",
-                    app_dir=r"C:\AnaBot",
+                    app_dir=r"C:\Botana",
                     start_args=["main.py", "--server", "--host", "127.0.0.1", "--port", "8865"],
-                    route_prefix="anabot",
+                    route_prefix="botana",
                     repo_url="https://github.com/AlleexMartinsT/Botana.git",
                     repo_branch="main",
                     auto_clone_missing=True,
-                    credentials_key="anabot_principal",
-                    notes="Instancia base do anaBot",
+                    credentials_key="botana_principal",
+                    notes="Instancia base do Botana",
                 ).sanitize(),
             ],
         )
@@ -61,16 +61,18 @@ class AppSettingsStore:
     def _legacy_defaults(raw: dict) -> dict:
         return {
             "financeiro_url": str(raw.get("financeiro_panel_url", "http://127.0.0.1:8765")).strip() or "http://127.0.0.1:8765",
-            "anabot_url": str(raw.get("anabot_panel_url", "http://127.0.0.1:8865")).strip() or "http://127.0.0.1:8865",
+            "botana_url": str(raw.get("botana_panel_url", raw.get("anabot_panel_url", "http://127.0.0.1:8865"))).strip()
+            or "http://127.0.0.1:8865",
             "financeiro_dir": str(raw.get("financeiro_app_dir", r"C:\FinanceBot")).strip() or r"C:\FinanceBot",
-            "anabot_dir": str(raw.get("anabot_app_dir", r"C:\AnaBot")).strip() or r"C:\AnaBot",
+            "botana_dir": str(raw.get("botana_app_dir", raw.get("anabot_app_dir", r"C:\Botana"))).strip()
+            or r"C:\Botana",
         }
 
     @staticmethod
     def _default_start_args(instance_type: str) -> list[str]:
         if instance_type == "financeiro":
             return ["main.py", "--server", "--no-browser"]
-        if instance_type == "anabot":
+        if instance_type == "botana":
             return ["main.py", "--server", "--host", "127.0.0.1", "--port", "8865"]
         return ["main.py", "--server"]
 
@@ -81,11 +83,12 @@ class AppSettingsStore:
             app_default = legacy["financeiro_dir"]
             prefix_default = "financeiro"
             repo_default = "https://github.com/AlleexMartinsT/financeiroBot.git"
-        elif inst_type == "anabot":
-            backend_default = legacy["anabot_url"]
-            app_default = legacy["anabot_dir"]
-            prefix_default = "anabot"
+        elif inst_type in {"botana", "anabot"}:
+            backend_default = legacy["botana_url"]
+            app_default = legacy["botana_dir"]
+            prefix_default = "botana"
             repo_default = "https://github.com/AlleexMartinsT/Botana.git"
+            inst_type = "botana"
         else:
             backend_default = ""
             app_default = ""
@@ -95,7 +98,7 @@ class AppSettingsStore:
         start_args = item.get("start_args")
         if not isinstance(start_args, list):
             start_args = self._default_start_args(inst_type)
-        if inst_type == "anabot":
+        if inst_type == "botana":
             clean_args = [str(x).strip() for x in start_args if str(x).strip()]
             if "--no-browser" in clean_args:
                 clean_args = [x for x in clean_args if x != "--no-browser"]
@@ -110,13 +113,13 @@ class AppSettingsStore:
         repo_url = raw_repo_url or repo_default
 
         raw_auto_clone = item.get("auto_clone_missing", None)
-        auto_clone_default = inst_type in {"financeiro", "anabot"}
+        auto_clone_default = inst_type in {"financeiro", "botana"}
         if raw_auto_clone is None:
             auto_clone_missing = auto_clone_default
         else:
             auto_clone_missing = bool(raw_auto_clone)
-            # Migração de configs antigas do anabot: sem repo_url e clone desativado.
-            if inst_type == "anabot" and not raw_repo_url:
+            # Migração de configs antigas do Botana: sem repo_url e clone desativado.
+            if inst_type == "botana" and not raw_repo_url:
                 auto_clone_missing = True
 
         cfg = InstanceConfig(
@@ -165,8 +168,10 @@ class AppSettingsStore:
         auto_update_branch = str(raw.get("auto_update_branch", "main")).strip() or "main"
 
         legacy = self._legacy_defaults(raw)
-        if legacy["anabot_url"].endswith("/anabot"):
-            legacy["anabot_url"] = "http://127.0.0.1:8865"
+        if legacy["botana_url"].endswith("/anabot"):
+            legacy["botana_url"] = "http://127.0.0.1:8865"
+        if legacy["botana_url"].endswith("/botana"):
+            legacy["botana_url"] = "http://127.0.0.1:8865"
 
         instances = []
         for item in raw.get("instances", []):

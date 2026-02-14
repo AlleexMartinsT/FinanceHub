@@ -1,6 +1,6 @@
-# FinanceAnaHub
+# FinanceHub
 
-FinanceAnaHub is a gateway/orchestrator for multiple bot instances (for example `FinanceBot` and `AnaBot`) in a single web entry point.
+FinanceHub is a gateway/orchestrator for multiple bot instances (for example `FinanceBot` and `Botana`) in a single web entry point.
 
 ## What This Project Does
 
@@ -56,6 +56,29 @@ At first backend startup, the Hub can also:
 
 - create backend `.venv` if missing
 - install backend dependencies from `requirements.txt`
+- auto-clone missing backend repository when `auto_clone_missing = true`
+
+### Botana First-Run Notes (Important)
+
+When `botana_principal` is enabled, the Hub will try to clone/start `C:\Botana` automatically.
+
+Requirements:
+
+- `C:\FinanceHub\data\instances.json` must have:
+  - `instance_type = "botana"`
+  - `enabled = true`
+  - `app_dir = "C:\\Botana"`
+  - `repo_url = "https://github.com/AlleexMartinsT/Botana.git"`
+  - `auto_clone_missing = true`
+  - `start_args = ["main.py","--server","--host","127.0.0.1","--port","8865"]`
+
+If dependency installation fails in Botana, run manually on server:
+
+```powershell
+cd C:\Botana
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install -r requirements.txt
+```
 
 ## Manual Installation (Server)
 
@@ -72,7 +95,7 @@ git clone https://github.com/AlleexMartinsT/FinanceHub.git C:\FinanceHub
 C:\FinanceHub\run_hub.bat
 ```
 
-## First-Run Behavior for FinanceBot
+## First-Run Behavior for Backends
 
 By default, `financeiro_principal` uses:
 
@@ -82,6 +105,14 @@ By default, `financeiro_principal` uses:
 
 If `C:\FinanceBot` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
 
+By default, `botana_principal` uses:
+
+- `app_dir = C:\Botana`
+- `backend_url = http://127.0.0.1:8865`
+- `auto_clone_missing = true`
+
+If `C:\Botana` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
+
 ## Routes
 
 Each instance is served by its own `route_prefix`.
@@ -89,7 +120,7 @@ Each instance is served by its own `route_prefix`.
 Examples:
 
 - `http://127.0.0.1:8877/financeiro/`
-- `http://127.0.0.1:8877/anabot/`
+- `http://127.0.0.1:8877/botana/`
 
 ## Configuration File
 
@@ -101,7 +132,7 @@ Per-instance fields:
 
 - `instance_id`
 - `display_name`
-- `instance_type` (`financeiro` or `anabot`)
+- `instance_type` (`financeiro` or `botana`)
 - `enabled`
 - `interval_seconds`
 - `backend_url`

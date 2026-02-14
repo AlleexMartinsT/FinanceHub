@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 
-VALID_INSTANCE_TYPES = {"financeiro", "anabot"}
+VALID_INSTANCE_TYPES = {"financeiro", "botana"}
 VALID_STATUS = {"idle", "running", "stopped", "error"}
 
 
@@ -29,6 +29,9 @@ class InstanceConfig:
         if not self.instance_id:
             raise ValueError("instance_id obrigatorio")
         self.instance_type = str(self.instance_type or "").strip().lower()
+        # Compatibilidade com configs antigas.
+        if self.instance_type == "anabot":
+            self.instance_type = "botana"
         if self.instance_type not in VALID_INSTANCE_TYPES:
             raise ValueError(f"instance_type invalido: {self.instance_type}")
         self.interval_seconds = max(30, min(86400, int(self.interval_seconds)))
