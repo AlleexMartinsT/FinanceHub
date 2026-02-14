@@ -197,12 +197,13 @@ class HubHttpServer:
 
     @staticmethod
     def _backend_target(base_url: str, inbound_path: str, prefix: str) -> str:
-        # inbound_path ex: /empresa1/financeiro/api/status -> /api/status
-        path = inbound_path[len(prefix) :]
+        # inbound_path ex: /financeiro/api/history?limit=300 -> /api/history?limit=300
+        parsed_in = urlparse(inbound_path)
+        path = parsed_in.path[len(prefix) :]
         if not path.startswith("/"):
             path = "/" + path
         parsed = urlparse(base_url)
-        return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+        return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", parsed_in.query or "", ""))
 
     @staticmethod
     def _rewrite_location_for_prefix(location: str, prefix: str) -> str:
