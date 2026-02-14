@@ -12,8 +12,10 @@ import math
 import urllib.error
 import urllib.parse
 import urllib.request
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from datetime import datetime
 
 from core.runtime import InstanceRuntimeManager
 from instances.models import InstanceConfig
@@ -58,6 +60,18 @@ class HubHttpServer:
         self._inst_updater_stop = threading.Event()
         self._inst_updater_interval_minutes = 5
         self._inst_updater_git_missing_logged = False
+        logs_dir = Path(self.settings.base_dir) / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        self._debug_log_path = logs_dir / "instance_debug.log"
+
+    def _diag(self, message: str):
+        line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}"
+        print(line)
+        try:
+            with self._debug_log_path.open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except Exception:
+            pass
 
     @staticmethod
     def _url_online(url: str, timeout: float = 1.2) -> bool:
@@ -83,7 +97,9 @@ class HubHttpServer:
 
     def _ensure_backend_runtime(self, app_dir: str) -> bool:
         app_path = Path(app_dir)
+        self._diag(f"[Runtime] Ensure runtime for {app_path}")
         if not app_path.exists():
+            self._diag(f"[Runtime] App dir nao existe: {app_path}")
             return False
 
         venv_python = app_path / ".venv" / "Scripts" / "python.exe"
@@ -92,7 +108,7 @@ class HubHttpServer:
             proc = subprocess.run(cmd, cwd=str(app_path), text=True, capture_output=True, check=False)
             if proc.returncode != 0:
                 out = (proc.stderr or proc.stdout or "").strip()
-                print(f"[Runtime] Falha ao criar venv em {app_path}: {out}")
+                self._diag(f"[Runtime] Falha ao criar venv em {app_path}: {out}")
                 return False
 
         req_file = app_path / "requirements.txt"
@@ -117,7 +133,7 @@ class HubHttpServer:
             )
             if pip_up.returncode != 0:
                 out = (pip_up.stderr or pip_up.stdout or "").strip()
-                print(f"[Runtime] Falha ao atualizar pip em {app_path}: {out}")
+                self._diag(f"[Runtime] Falha ao atualizar pip em {app_path}: {out}")
                 return False
 
             pip_req = subprocess.run(
@@ -129,13 +145,13 @@ class HubHttpServer:
             )
             if pip_req.returncode != 0:
                 out = (pip_req.stderr or pip_req.stdout or "").strip()
-                print(f"[Runtime] Falha ao instalar requisitos em {app_path}: {out}")
+                self._diag(f"[Runtime] Falha ao instalar requisitos em {app_path}: {out}")
                 return False
             try:
                 marker.write_text("ok", encoding="utf-8")
             except Exception:
                 pass
-            print(f"[Runtime] Dependencias preparadas para {app_path}")
+            self._diag(f"[Runtime] Dependencias preparadas para {app_path}")
 
         return True
 
@@ -148,14 +164,18 @@ class HubHttpServer:
                 if not self._ensure_backend_runtime(app_dir):
                     return False
                 cmd = [self._python_cmd(app_dir)] + list(args or ["main.py"])
+                self._diag(f"[Runtime] Iniciando {key}: cwd={app_dir} cmd={' '.join(cmd)}")
                 self._procs[key] = subprocess.Popen(
                     cmd,
                     cwd=app_dir,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
+                self._diag(f"[Runtime] Processo {key} iniciado pid={self._procs[key].pid}")
                 return True
-            except Exception:
+            except Exception as exc:
+                self._diag(f"[Runtime] Erro iniciando {key}: {exc}")
+                self._diag(traceback.format_exc())
                 return False
 
     @staticmethod
@@ -204,7 +224,7 @@ class HubHttpServer:
         code, out = self._run_git(app_dir, "fetch", remote, branch)
         if code != 0:
             if out:
-                print(f"[Instance Updater] {inst.display_name}: falha no fetch: {out}")
+                self._diag(f"[Instance Updater] {inst.display_name}: falha no fetch: {out}")
             return
 
         code_l, local_head = self._run_git(app_dir, "rev-parse", "HEAD")
@@ -216,14 +236,14 @@ class HubHttpServer:
         if not local_head or not remote_head or local_head == remote_head:
             return
 
-        print(
+        self._diag(
             f"[Instance Updater] {inst.display_name}: nova versao detectada "
             f"({local_head[:7]} -> {remote_head[:7]})"
         )
         code, out = self._run_git(app_dir, "pull", "--ff-only", remote, branch)
         if code != 0:
             if out:
-                print(f"[Instance Updater] {inst.display_name}: falha no pull: {out}")
+                self._diag(f"[Instance Updater] {inst.display_name}: falha no pull: {out}")
             return
 
         code_n, new_head = self._run_git(app_dir, "rev-parse", "HEAD")
@@ -231,17 +251,17 @@ class HubHttpServer:
         if not new_head or new_head == local_head:
             return
 
-        print(f"[Instance Updater] {inst.display_name}: atualizacao aplicada para {new_head[:7]}")
+        self._diag(f"[Instance Updater] {inst.display_name}: atualizacao aplicada para {new_head[:7]}")
         restarted = self._restart_managed_instance(inst.instance_id, str(app_dir), list(inst.start_args or ["main.py"]))
         if restarted:
-            print(f"[Instance Updater] {inst.display_name}: reiniciado com a nova versao")
+            self._diag(f"[Instance Updater] {inst.display_name}: reiniciado com a nova versao")
         else:
-            print(
+            self._diag(
                 f"[Instance Updater] {inst.display_name}: atualizado, mas nao foi possivel reiniciar automaticamente"
             )
 
     def _instance_updater_loop(self) -> None:
-        print(f"[Instance Updater] Ativo: intervalo={self._inst_updater_interval_minutes}min")
+        self._diag(f"[Instance Updater] Ativo: intervalo={self._inst_updater_interval_minutes}min")
         # Primeira checagem imediata, igual comportamento esperado de startup.
         self._run_instance_update_cycle()
         while not self._inst_updater_stop.is_set():
@@ -256,7 +276,7 @@ class HubHttpServer:
     def _run_instance_update_cycle(self) -> None:
         if shutil.which("git") is None:
             if not self._inst_updater_git_missing_logged:
-                print("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
+                    self._diag("[Instance Updater] Git nao encontrado. Atualizacao das instancias desativada")
                 self._inst_updater_git_missing_logged = True
             return
         try:
@@ -298,11 +318,11 @@ class HubHttpServer:
             try:
                 backup = app_path.with_name(f"{app_path.name}_broken_{int(time.time())}")
                 app_path.rename(backup)
-                print(
+                self._diag(
                     f"[Clone] {inst.display_name}: pasta existente sem main.py/.git movida para {backup}"
                 )
             except Exception as exc:
-                print(
+                self._diag(
                     f"[Clone] {inst.display_name}: pasta {app_path} inválida e não foi possível mover: {exc}"
                 )
                 return False
@@ -312,16 +332,19 @@ class HubHttpServer:
             proc = subprocess.run(cmd, text=True, capture_output=True, check=False)
             if proc.returncode != 0:
                 out = (proc.stderr or proc.stdout or "").strip()
-                print(f"[Clone] Falha em {inst.display_name}: {out}")
+                self._diag(f"[Clone] Falha em {inst.display_name}: {out}")
                 return False
-            print(f"[Clone] Repositorio clonado para {app_path}")
+            self._diag(f"[Clone] Repositorio clonado para {app_path}")
             return True
         except Exception as exc:
-            print(f"[Clone] Erro ao clonar {inst.display_name}: {exc}")
+            self._diag(f"[Clone] Erro ao clonar {inst.display_name}: {exc}")
+            self._diag(traceback.format_exc())
             return False
 
     def _ensure_backend_online(self, inst: InstanceConfig) -> bool:
+        self._diag(f"[Warmup] Ensure online {inst.display_name} -> {inst.backend_url}")
         if self._url_online(inst.backend_url):
+            self._diag(f"[Warmup] Backend ja online: {inst.display_name}")
             return True
         if not inst.app_dir:
             return False
@@ -330,12 +353,15 @@ class HubHttpServer:
             if not Path(inst.app_dir).exists():
                 return False
         if not self._start_app_if_needed(inst.instance_id, inst.app_dir, inst.start_args):
+            self._diag(f"[Warmup] Falha ao iniciar processo de {inst.display_name}")
             return False
         deadline = time.time() + 30
         while time.time() < deadline:
             if self._url_online(inst.backend_url):
+                self._diag(f"[Warmup] Backend ficou online: {inst.display_name}")
                 return True
             time.sleep(0.6)
+        self._diag(f"[Warmup] Timeout aguardando backend: {inst.display_name}")
         return False
 
     @staticmethod
@@ -475,7 +501,7 @@ class HubHttpServer:
             if not inst.enabled:
                 continue
             ok = self._ensure_backend_online(inst)
-            print(f"[Warmup] {inst.display_name}: {'OK' if ok else 'FALHA'}")
+            self._diag(f"[Warmup] {inst.display_name}: {'OK' if ok else 'FALHA'}")
 
     @staticmethod
     def _instances_by_prefix(instances: list[InstanceConfig]) -> dict[str, InstanceConfig]:
