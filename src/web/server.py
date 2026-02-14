@@ -229,13 +229,25 @@ class HubHttpServer:
         # API and auth routes
         text = text.replace('"/api/', f'"/{prefix}/api/')
         text = text.replace("'/api/", f"'/{prefix}/api/")
+        text = text.replace("`/api/", f"`/{prefix}/api/")
         text = text.replace('fetch("/api/', f'fetch("/{prefix}/api/')
         text = text.replace("fetch('/api/", f"fetch('/{prefix}/api/")
+        text = text.replace("fetch(`/api/", f"fetch(`/{prefix}/api/")
 
         text = text.replace('href="/logout"', f'href="/{prefix}/logout"')
         text = text.replace('href="/login"', f'href="/{prefix}/login"')
         text = text.replace('action="/login"', f'action="/{prefix}/login"')
         text = text.replace('action="/logout"', f'action="/{prefix}/logout"')
+
+        # JS redirects in FinanceBot pages
+        text = text.replace("window.location.href='/'", f"window.location.href='/{prefix}/'")
+        text = text.replace('window.location.href="/"', f'window.location.href="/{prefix}/"')
+        text = text.replace("window.location='/'", f"window.location='/{prefix}/'")
+        text = text.replace('window.location="/"', f'window.location="/{prefix}/"')
+        text = text.replace("window.location.href='/login'", f"window.location.href='/{prefix}/login'")
+        text = text.replace('window.location.href="/login"', f'window.location.href="/{prefix}/login"')
+        text = text.replace("window.location='/login'", f"window.location='/{prefix}/login'")
+        text = text.replace('window.location="/login"', f'window.location="/{prefix}/login"')
 
         # Static/media routes commonly used by FinanceBot UI
         root_paths = [
