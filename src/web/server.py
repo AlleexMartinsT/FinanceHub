@@ -205,6 +205,17 @@ class HubHttpServer:
         return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
 
     @staticmethod
+    def _rewrite_location_for_prefix(location: str, prefix: str) -> str:
+        parsed = urlparse(location or "")
+        path = parsed.path or "/"
+        if not path.startswith("/"):
+            path = "/" + path
+        base = f"/{prefix}"
+        if not (path == base or path.startswith(f"{base}/")):
+            path = f"{base}{path}"
+        return urllib.parse.urlunparse(("", "", path, "", parsed.query or "", parsed.fragment or ""))
+
+    @staticmethod
     def _rewrite_text_for_prefix(body: bytes, content_type: str, prefix: str) -> bytes:
         ctype = (content_type or "").lower()
         if "text/html" not in ctype and "javascript" not in ctype:
@@ -275,11 +286,7 @@ class HubHttpServer:
                     if kl in {"content-length", "transfer-encoding", "connection", "content-encoding"}:
                         continue
                     if kl == "location":
-                        parsed = urlparse(v)
-                        loc = parsed.path or "/"
-                        if not loc.startswith(f"/{prefix}/"):
-                            loc = f"/{prefix}{loc}"
-                        handler.send_header("Location", loc)
+                        handler.send_header("Location", self._rewrite_location_for_prefix(v, prefix))
                         continue
                     handler.send_header(k, v)
                 handler.send_header("Content-Length", str(len(raw)))
@@ -294,6 +301,9 @@ class HubHttpServer:
             for k, v in e.headers.items():
                 kl = k.lower()
                 if kl in {"content-length", "transfer-encoding", "connection", "content-encoding"}:
+                    continue
+                if kl == "location":
+                    handler.send_header("Location", self._rewrite_location_for_prefix(v, prefix))
                     continue
                 handler.send_header(k, v)
             handler.send_header("Content-Length", str(len(raw)))
