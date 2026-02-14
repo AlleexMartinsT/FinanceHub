@@ -282,14 +282,28 @@ class HubHttpServer:
 
     def _clone_if_needed(self, inst: InstanceConfig) -> bool:
         app_path = Path(str(inst.app_dir or ""))
-        if app_path.exists():
-            return True
         if not inst.auto_clone_missing:
             return False
         if not inst.repo_url:
             return False
         if shutil.which("git") is None:
             return False
+        if app_path.exists():
+            # Pasta já existe: se for um repo válido ou tiver main.py, segue sem clonar.
+            if (app_path / ".git").exists() or (app_path / "main.py").exists():
+                return True
+            # Tentativa de recuperação: pasta inválida/incompleta.
+            try:
+                backup = app_path.with_name(f"{app_path.name}_broken_{int(time.time())}")
+                app_path.rename(backup)
+                print(
+                    f"[Clone] {inst.display_name}: pasta existente sem main.py/.git movida para {backup}"
+                )
+            except Exception as exc:
+                print(
+                    f"[Clone] {inst.display_name}: pasta {app_path} inválida e não foi possível mover: {exc}"
+                )
+                return False
         try:
             app_path.parent.mkdir(parents=True, exist_ok=True)
             cmd = ["git", "clone", "--branch", inst.repo_branch or "main", inst.repo_url, str(app_path)]

@@ -99,9 +99,25 @@ class AppSettingsStore:
             clean_args = [str(x).strip() for x in start_args if str(x).strip()]
             if "--no-browser" in clean_args:
                 clean_args = [x for x in clean_args if x != "--no-browser"]
+            if "--server" not in clean_args:
+                clean_args.insert(0, "--server")
+                clean_args.insert(0, "main.py")
             if not clean_args:
                 clean_args = self._default_start_args(inst_type)
             start_args = clean_args
+
+        raw_repo_url = str(item.get("repo_url", "")).strip()
+        repo_url = raw_repo_url or repo_default
+
+        raw_auto_clone = item.get("auto_clone_missing", None)
+        auto_clone_default = inst_type in {"financeiro", "anabot"}
+        if raw_auto_clone is None:
+            auto_clone_missing = auto_clone_default
+        else:
+            auto_clone_missing = bool(raw_auto_clone)
+            # Migração de configs antigas do anabot: sem repo_url e clone desativado.
+            if inst_type == "anabot" and not raw_repo_url:
+                auto_clone_missing = True
 
         cfg = InstanceConfig(
             instance_id=str(item.get("instance_id", "")).strip(),
@@ -113,9 +129,9 @@ class AppSettingsStore:
             app_dir=str(item.get("app_dir", app_default)).strip() or app_default,
             start_args=[str(x) for x in start_args],
             route_prefix=str(item.get("route_prefix", prefix_default)).strip() or prefix_default,
-            repo_url=(str(item.get("repo_url", "")).strip() or repo_default),
+            repo_url=repo_url,
             repo_branch=str(item.get("repo_branch", "main")).strip() or "main",
-            auto_clone_missing=bool(item.get("auto_clone_missing", inst_type == "financeiro")),
+            auto_clone_missing=auto_clone_missing,
             credentials_key=str(item.get("credentials_key", "")).strip(),
             notes=str(item.get("notes", "")).strip(),
         ).sanitize()
