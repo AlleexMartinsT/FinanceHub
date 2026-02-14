@@ -24,7 +24,7 @@ class AppSettingsStore:
             instances=[
                 InstanceConfig(
                     instance_id="financeiro_principal",
-                    display_name="Financeiro Principal",
+                    display_name="Financeiro",
                     instance_type="financeiro",
                     enabled=True,
                     interval_seconds=1800,
@@ -40,7 +40,7 @@ class AppSettingsStore:
                 ).sanitize(),
                 InstanceConfig(
                     instance_id="botana_principal",
-                    display_name="Botana Principal",
+                    display_name="Botana",
                     instance_type="botana",
                     enabled=True,
                     interval_seconds=1800,
@@ -56,6 +56,27 @@ class AppSettingsStore:
                 ).sanitize(),
             ],
         )
+
+    @staticmethod
+    def _normalize_display_name(name: str, inst_type: str) -> str:
+        raw = str(name or "").strip()
+        if not raw:
+            if inst_type == "financeiro":
+                return "Financeiro"
+            if inst_type == "botana":
+                return "Botana"
+            return ""
+        parts = [p for p in raw.split() if p]
+        if parts and parts[-1].lower().startswith("princi"):
+            parts = parts[:-1]
+        out = " ".join(parts).strip()
+        if out:
+            return out
+        if inst_type == "financeiro":
+            return "Financeiro"
+        if inst_type == "botana":
+            return "Botana"
+        return raw
 
     @staticmethod
     def _legacy_defaults(raw: dict) -> dict:
@@ -122,9 +143,10 @@ class AppSettingsStore:
             if inst_type == "botana" and not raw_repo_url:
                 auto_clone_missing = True
 
+        display_name = self._normalize_display_name(str(item.get("display_name", "")).strip(), inst_type)
         cfg = InstanceConfig(
             instance_id=str(item.get("instance_id", "")).strip(),
-            display_name=str(item.get("display_name", "")).strip(),
+            display_name=display_name,
             instance_type=inst_type,
             enabled=bool(item.get("enabled", True)),
             interval_seconds=int(item.get("interval_seconds", 1800)),
