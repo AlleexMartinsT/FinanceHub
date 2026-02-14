@@ -60,6 +60,7 @@ class HubHttpServer:
         self._inst_updater_stop = threading.Event()
         self._inst_updater_interval_minutes = 5
         self._inst_updater_git_missing_logged = False
+        self._instance_update_restarts = 0
         logs_dir = Path(self.settings.base_dir) / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         self._debug_log_path = logs_dir / "instance_debug.log"
@@ -70,6 +71,13 @@ class HubHttpServer:
         try:
             with self._debug_log_path.open("a", encoding="utf-8") as f:
                 f.write(line + "\n")
+        except Exception:
+            pass
+
+    @staticmethod
+    def _clear_console() -> None:
+        try:
+            os.system("cls" if os.name == "nt" else "clear")
         except Exception:
             pass
 
@@ -254,6 +262,12 @@ class HubHttpServer:
         self._diag(f"[Instance Updater] {inst.display_name}: atualizacao aplicada para {new_head[:7]}")
         restarted = self._restart_managed_instance(inst.instance_id, str(app_dir), list(inst.start_args or ["main.py"]))
         if restarted:
+            self._instance_update_restarts += 1
+            self._clear_console()
+            print(
+                "[Hub] Atualizacoes de instancias nesta sessao: "
+                f"{self._instance_update_restarts}"
+            )
             self._diag(f"[Instance Updater] {inst.display_name}: reiniciado com a nova versao")
         else:
             self._diag(
