@@ -175,6 +175,38 @@ Manual update:
 C:\FinanceHub\update_hub.bat
 ```
 
+Uninstall (Hub only):
+
+```bash
+C:\FinanceHub\uninstall_hub.bat
+```
+
+Uninstall Hub + backends + AppData:
+
+```bash
+C:\FinanceHub\uninstall_hub.bat -RemoveBackends -RemoveAppData
+```
+
+Equivalent PowerShell command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
+```
+
+## Login/Sync Diagnostics
+
+If Botana shows "Falha ao conectar com o servidor" during login, verify runtime context in Hub startup logs.
+
+Expected line:
+
+- `[Hub] Runtime context: user=<USER> appdata=<PATH>`
+
+Botana reads auth file from:
+
+- `%APPDATA%\Botana\panel_auth.json` of the same runtime user shown above.
+
+If Hub runs as a different Windows user (or `SYSTEM`), it may use a different `%APPDATA%` and different credentials file.
+
 ## Notes
 
 - Keep backend services bound to localhost (`127.0.0.1`) when possible.

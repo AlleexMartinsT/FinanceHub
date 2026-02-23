@@ -63,6 +63,11 @@ def main() -> None:
         update_count = 0
     commit = _current_commit(base_dir)
     print(f"[Hub] Build: {commit} | Auto-update restarts in this CMD: {update_count}")
+    print(
+        "[Hub] Runtime context: "
+        f"user={os.environ.get('USERNAME', '-')} "
+        f"appdata={os.environ.get('APPDATA', '-')}"
+    )
     _check_sync(config)
 
     runtime = InstanceRuntimeManager(instances=config.instances)
