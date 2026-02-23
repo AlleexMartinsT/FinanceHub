@@ -3,7 +3,10 @@ param(
   [string]$FinanceDir = "C:\FinanceBot",
   [string]$BotanaDir = "C:\Botana",
   [switch]$RemoveBackends,
+  [switch]$RemoveFinance,
+  [switch]$RemoveBotana,
   [switch]$RemoveAppData,
+  [switch]$NoMenu,
   [switch]$Force
 )
 
@@ -59,29 +62,110 @@ function Remove-PathSafe {
   }
 }
 
+function Ask-YesNo {
+  param(
+    [string]$Question,
+    [bool]$Default = $true
+  )
+  $suffix = if ($Default) { "[Y/n]" } else { "[y/N]" }
+  $ans = Read-Host "$Question $suffix"
+  if ([string]::IsNullOrWhiteSpace($ans)) { return $Default }
+  $val = $ans.Trim().ToLowerInvariant()
+  return @("y","yes","s","sim") -contains $val
+}
+
+function Resolve-UninstallSelection {
+  $selection = [ordered]@{
+    RemoveHub = $true
+    RemoveFinance = $false
+    RemoveBotana = $false
+    RemoveAppData = $false
+  }
+
+  if ($RemoveBackends) {
+    $selection.RemoveFinance = $true
+    $selection.RemoveBotana = $true
+  }
+  if ($RemoveFinance) { $selection.RemoveFinance = $true }
+  if ($RemoveBotana) { $selection.RemoveBotana = $true }
+  if ($RemoveAppData) { $selection.RemoveAppData = $true }
+
+  $hasExplicit =
+    $PSBoundParameters.ContainsKey("RemoveBackends") -or
+    $PSBoundParameters.ContainsKey("RemoveFinance") -or
+    $PSBoundParameters.ContainsKey("RemoveBotana") -or
+    $PSBoundParameters.ContainsKey("RemoveAppData")
+
+  if (-not $NoMenu -and -not $hasExplicit) {
+    Write-Host ""
+    Write-Host "=== Desinstalador FinanceHub ==="
+    Write-Host "1) Completa (Hub + FinanceBot + Botana + AppData)"
+    Write-Host "2) Personalizada"
+    Write-Host "3) Apenas Hub"
+    Write-Host "0) Cancelar"
+    $opt = Read-Host "Escolha uma opcao"
+    switch ($opt) {
+      "1" {
+        $selection.RemoveHub = $true
+        $selection.RemoveFinance = $true
+        $selection.RemoveBotana = $true
+        $selection.RemoveAppData = $true
+      }
+      "2" {
+        $selection.RemoveHub = Ask-YesNo "Remover HUB ($InstallDir)?" $true
+        $selection.RemoveFinance = Ask-YesNo "Remover FinanceBot ($FinanceDir)?" $false
+        $selection.RemoveBotana = Ask-YesNo "Remover Botana ($BotanaDir)?" $false
+        $selection.RemoveAppData = Ask-YesNo "Remover AppData (configuracoes/credenciais locais)?" $false
+      }
+      "3" {
+        $selection.RemoveHub = $true
+      }
+      default {
+        Write-Host "[Uninstall] Cancelado pelo usuario."
+        exit 0
+      }
+    }
+  }
+
+  return $selection
+}
+
+$plan = Resolve-UninstallSelection
+
+Write-Host "[Uninstall] Plano selecionado:"
+Write-Host ("  - Hub:      {0}" -f ($(if ($plan.RemoveHub) { "SIM" } else { "NAO" })))
+Write-Host ("  - Finance:  {0}" -f ($(if ($plan.RemoveFinance) { "SIM" } else { "NAO" })))
+Write-Host ("  - Botana:   {0}" -f ($(if ($plan.RemoveBotana) { "SIM" } else { "NAO" })))
+Write-Host ("  - AppData:  {0}" -f ($(if ($plan.RemoveAppData) { "SIM" } else { "NAO" })))
+
 if (-not $Force) {
-  Write-Host "[Uninstall] Este script remove arquivos do Hub."
-  Write-Host "[Uninstall] Use -Force para executar sem confirmacao."
-  exit 1
+  if (-not (Ask-YesNo "Confirmar desinstalacao?" $true)) {
+    Write-Host "[Uninstall] Operacao cancelada."
+    exit 0
+  }
 }
 
 Write-Host "[Uninstall] Iniciando desinstalacao..."
 try { Set-Location "C:\" } catch {}
 
-$pathsToStop = @($InstallDir)
-if ($RemoveBackends) {
-  $pathsToStop += @($FinanceDir, $BotanaDir)
-}
+$pathsToStop = @()
+if ($plan.RemoveHub) { $pathsToStop += @($InstallDir) }
+if ($plan.RemoveFinance) { $pathsToStop += @($FinanceDir) }
+if ($plan.RemoveBotana) { $pathsToStop += @($BotanaDir) }
 Stop-ProcessesByPath -Paths $pathsToStop
 
-Remove-PathSafe -Path $InstallDir
+if ($plan.RemoveHub) {
+  Remove-PathSafe -Path $InstallDir
+}
 
-if ($RemoveBackends) {
+if ($plan.RemoveFinance) {
   Remove-PathSafe -Path $FinanceDir
+}
+if ($plan.RemoveBotana) {
   Remove-PathSafe -Path $BotanaDir
 }
 
-if ($RemoveAppData) {
+if ($plan.RemoveAppData) {
   $candidates = @(
     (Join-Path $env:APPDATA "FinanceBot"),
     (Join-Path $env:APPDATA "Botana"),

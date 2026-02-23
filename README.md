@@ -181,6 +181,13 @@ Uninstall (Hub only):
 C:\FinanceHub\uninstall_hub.bat
 ```
 
+By default, `uninstall_hub.bat` now opens a small menu:
+
+- `1` Complete uninstall (Hub + FinanceBot + Botana + AppData)
+- `2` Custom uninstall (choose each component)
+- `3` Hub only
+- `0` Cancel
+
 Uninstall Hub + backends + AppData:
 
 ```bash
@@ -191,6 +198,16 @@ Equivalent PowerShell command:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
+```
+
+Non-interactive examples:
+
+```powershell
+# Hub + both backends + AppData (no confirmation)
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
+
+# Remove only Botana
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBotana
 ```
 
 ## Login/Sync Diagnostics
