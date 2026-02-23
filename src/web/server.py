@@ -63,6 +63,7 @@ class HubHttpServer:
         self._instance_update_restarts = 0
         logs_dir = Path(self.settings.base_dir) / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
+        self._logs_dir = logs_dir
         self._debug_log_path = logs_dir / "instance_debug.log"
 
     def _diag(self, message: str):
@@ -102,6 +103,12 @@ class HubHttpServer:
         app_path = Path(app_dir)
         venv_python = app_path / ".venv" / "Scripts" / "python.exe"
         return str(venv_python) if venv_python.exists() else sys.executable
+
+    def _instance_log_paths(self, key: str) -> tuple[Path, Path]:
+        safe_key = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in (key or "instance"))
+        out_path = self._logs_dir / f"{safe_key}_stdout.log"
+        err_path = self._logs_dir / f"{safe_key}_stderr.log"
+        return out_path, err_path
 
     def _ensure_backend_runtime(self, app_dir: str) -> bool:
         app_path = Path(app_dir)
@@ -172,14 +179,23 @@ class HubHttpServer:
                 if not self._ensure_backend_runtime(app_dir):
                     return False
                 cmd = [self._python_cmd(app_dir)] + list(args or ["main.py"])
+                out_path, err_path = self._instance_log_paths(key)
                 self._diag(f"[Runtime] Iniciando {key}: cwd={app_dir} cmd={' '.join(cmd)}")
+                self._diag(f"[Runtime] Logs {key}: stdout={out_path} stderr={err_path}")
+                out_handle = open(out_path, "ab")
+                err_handle = open(err_path, "ab")
                 self._procs[key] = subprocess.Popen(
                     cmd,
                     cwd=app_dir,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stdout=out_handle,
+                    stderr=err_handle,
                 )
+                out_handle.close()
+                err_handle.close()
                 self._diag(f"[Runtime] Processo {key} iniciado pid={self._procs[key].pid}")
+                time.sleep(0.8)
+                if self._procs[key].poll() is not None:
+                    self._diag(f"[Runtime] Processo {key} encerrou logo apos iniciar (exit={self._procs[key].poll()})")
                 return True
             except Exception as exc:
                 self._diag(f"[Runtime] Erro iniciando {key}: {exc}")

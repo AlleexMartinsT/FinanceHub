@@ -224,6 +224,14 @@ Botana reads auth file from:
 
 If Hub runs as a different Windows user (or `SYSTEM`), it may use a different `%APPDATA%` and different credentials file.
 
+Runtime logs on server:
+
+- `C:\FinanceHub\logs\instance_debug.log`
+- `C:\FinanceHub\logs\financeiro_principal_stdout.log`
+- `C:\FinanceHub\logs\financeiro_principal_stderr.log`
+- `C:\FinanceHub\logs\botana_principal_stdout.log`
+- `C:\FinanceHub\logs\botana_principal_stderr.log`
+
 ## Notes
 
 - Keep backend services bound to localhost (`127.0.0.1`) when possible.
