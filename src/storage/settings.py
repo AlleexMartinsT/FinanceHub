@@ -98,13 +98,22 @@ class AppSettingsStore:
         return ["main.py", "--server"]
 
     def _parse_instance(self, item: dict, legacy: dict) -> InstanceConfig:
+        raw_instance_id = str(item.get("instance_id", "")).strip()
+        raw_route_prefix = str(item.get("route_prefix", "")).strip()
+        raw_display_name = str(item.get("display_name", "")).strip()
         inst_type = str(item.get("instance_type", "")).strip().lower()
+        legacy_anabot = (
+            inst_type == "anabot"
+            or raw_route_prefix.lower() == "anabot"
+            or raw_instance_id.lower().startswith("anabot")
+            or raw_display_name.lower().startswith("anabot")
+        )
         if inst_type == "financeiro":
             backend_default = legacy["financeiro_url"]
             app_default = legacy["financeiro_dir"]
             prefix_default = "financeiro"
             repo_default = "https://github.com/AlleexMartinsT/financeiroBot.git"
-        elif inst_type in {"botana", "anabot"}:
+        elif inst_type in {"botana", "anabot"} or legacy_anabot:
             backend_default = legacy["botana_url"]
             app_default = legacy["botana_dir"]
             prefix_default = "botana"
@@ -123,10 +132,14 @@ class AppSettingsStore:
             clean_args = [str(x).strip() for x in start_args if str(x).strip()]
             if "--no-browser" in clean_args:
                 clean_args = [x for x in clean_args if x != "--no-browser"]
-            if "--server" not in clean_args:
+            if legacy_anabot:
+                clean_args = self._default_start_args(inst_type)
+            elif "--server" not in clean_args:
                 clean_args.insert(0, "--server")
                 clean_args.insert(0, "main.py")
             if not clean_args:
+                clean_args = self._default_start_args(inst_type)
+            if "--host" not in clean_args or "--port" not in clean_args:
                 clean_args = self._default_start_args(inst_type)
             start_args = clean_args
 
@@ -143,17 +156,31 @@ class AppSettingsStore:
             if inst_type == "botana" and not raw_repo_url:
                 auto_clone_missing = True
 
-        display_name = self._normalize_display_name(str(item.get("display_name", "")).strip(), inst_type)
+        display_name_source = "Botana" if legacy_anabot else raw_display_name
+        display_name = self._normalize_display_name(display_name_source, inst_type)
+        instance_id = raw_instance_id
+        if legacy_anabot and (not instance_id or instance_id.lower().startswith("anabot")):
+            instance_id = "botana_principal"
+        route_prefix = raw_route_prefix or prefix_default
+        if legacy_anabot or route_prefix.lower() == "anabot":
+            route_prefix = "botana"
+        app_dir = str(item.get("app_dir", app_default)).strip() or app_default
+        if legacy_anabot and app_dir.lower().endswith("\\anabot"):
+            app_dir = r"C:\Botana"
+        enabled = bool(item.get("enabled", True))
+        if legacy_anabot:
+            enabled = True
+
         cfg = InstanceConfig(
-            instance_id=str(item.get("instance_id", "")).strip(),
+            instance_id=instance_id,
             display_name=display_name,
             instance_type=inst_type,
-            enabled=bool(item.get("enabled", True)),
+            enabled=enabled,
             interval_seconds=int(item.get("interval_seconds", 1800)),
             backend_url=str(item.get("backend_url", backend_default)).strip() or backend_default,
-            app_dir=str(item.get("app_dir", app_default)).strip() or app_default,
+            app_dir=app_dir,
             start_args=[str(x) for x in start_args],
-            route_prefix=str(item.get("route_prefix", prefix_default)).strip() or prefix_default,
+            route_prefix=route_prefix,
             repo_url=repo_url,
             repo_branch=str(item.get("repo_branch", "main")).strip() or "main",
             auto_clone_missing=auto_clone_missing,
