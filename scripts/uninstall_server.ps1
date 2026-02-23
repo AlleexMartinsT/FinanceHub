@@ -22,7 +22,7 @@ function Stop-ProcessesByPath {
   }
 
   $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-    $_.Name -match "python|pythonw|cmd|powershell"
+    $_.Name -match "python|pythonw"
   }
 
   foreach ($proc in $procs) {
@@ -66,6 +66,7 @@ if (-not $Force) {
 }
 
 Write-Host "[Uninstall] Iniciando desinstalacao..."
+try { Set-Location "C:\" } catch {}
 
 $pathsToStop = @($InstallDir)
 if ($RemoveBackends) {
@@ -98,3 +99,4 @@ if ($RemoveAppData) {
 
 Write-Host "[Uninstall] Concluido."
 Write-Host "[Uninstall] Se necessario, execute bootstrap novamente para instalar do zero."
+exit 0
