@@ -355,11 +355,12 @@ class HubHttpServer:
             self._diag(traceback.format_exc())
             return False
 
-    def _ensure_backend_online(self, inst: InstanceConfig) -> bool:
-        self._diag(f"[Warmup] Ensure online {inst.display_name} -> {inst.backend_url}")
+    def _ensure_backend_online(self, inst: InstanceConfig, quiet_if_online: bool = False) -> bool:
         if self._url_online(inst.backend_url):
-            self._diag(f"[Warmup] Backend ja online: {inst.display_name}")
+            if not quiet_if_online:
+                self._diag(f"[Warmup] Backend ja online: {inst.display_name}")
             return True
+        self._diag(f"[Warmup] Ensure online {inst.display_name} -> {inst.backend_url}")
         if not inst.app_dir:
             return False
         if not self._clone_if_needed(inst):
@@ -550,7 +551,7 @@ class HubHttpServer:
                     if path == base:
                         return _redirect_response(self, f"{base}/")
                     if path.startswith(f"{base}/"):
-                        ok = self.server.hub_ref._ensure_backend_online(inst)
+                        ok = self.server.hub_ref._ensure_backend_online(inst, quiet_if_online=True)
                         if not ok:
                             return _html_response(
                                 self,
