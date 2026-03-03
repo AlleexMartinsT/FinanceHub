@@ -175,6 +175,21 @@ Manual update:
 C:\FinanceHub\update_hub.bat
 ```
 
+Instant update trigger (webhook-friendly):
+
+```powershell
+# Optional secret in the Hub runtime environment:
+# set HUB_UPDATE_WEBHOOK_SECRET=your-secret
+
+Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8877/hub/api/update/check?token=your-secret"
+```
+
+Notes:
+
+- Endpoint: `POST /hub/api/update/check`
+- If `HUB_UPDATE_WEBHOOK_SECRET` is set, token is required (header `X-Hub-Token` or query `token`).
+- Keeps interval-based updater as fallback; this trigger only accelerates checks.
+
 Uninstall (Hub only):
 
 ```bash

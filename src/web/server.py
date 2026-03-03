@@ -153,11 +153,19 @@ def _inject_back_to_hub_button(html: str) -> str:
 
 
 class HubHttpServer:
-    def __init__(self, host: str, port: int, runtime: InstanceRuntimeManager, settings: AppSettingsStore):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        runtime: InstanceRuntimeManager,
+        settings: AppSettingsStore,
+        updater=None,
+    ):
         self.host = host
         self.port = port
         self.runtime = runtime
         self.settings = settings
+        self.updater = updater
         self.httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._procs: dict[str, subprocess.Popen] = {}
@@ -670,6 +678,20 @@ class HubHttpServer:
 
                 if path == "/hub/api/instances":
                     return _json_response(self, 200, {"items": runtime.list()})
+
+                if path == "/hub/api/update/check":
+                    if self.command not in {"GET", "POST"}:
+                        return _json_response(self, 405, {"ok": False, "error": "Metodo nao permitido"})
+                    expected = str(os.environ.get("HUB_UPDATE_WEBHOOK_SECRET", "")).strip()
+                    query = urllib.parse.parse_qs(urlparse(self.path).query or "")
+                    provided = str(self.headers.get("X-Hub-Token", "")).strip() or str(query.get("token", [""])[0]).strip()
+                    if expected and provided != expected:
+                        return _json_response(self, 403, {"ok": False, "error": "Token invalido"})
+                    updater_ref = self.server.hub_ref.updater
+                    if updater_ref is None:
+                        return _json_response(self, 503, {"ok": False, "error": "Updater indisponivel"})
+                    queued = bool(updater_ref.trigger_check(reason="api"))
+                    return _json_response(self, 202, {"ok": queued, "queued": queued})
 
                 for prefix, inst in by_prefix.items():
                     base = f"/{prefix}"

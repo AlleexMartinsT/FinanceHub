@@ -71,18 +71,19 @@ def main() -> None:
     _check_sync(config)
 
     runtime = InstanceRuntimeManager(instances=config.instances)
-    server = HubHttpServer(
-        host=config.panel_host,
-        port=config.panel_port,
-        runtime=runtime,
-        settings=settings,
-    )
     updater = AutoUpdater(
         repo_dir=base_dir,
         enabled=bool(config.auto_update_enabled),
         interval_minutes=int(config.auto_update_interval_minutes),
         remote=str(config.auto_update_remote),
         branch=str(config.auto_update_branch),
+    )
+    server = HubHttpServer(
+        host=config.panel_host,
+        port=config.panel_port,
+        runtime=runtime,
+        settings=settings,
+        updater=updater,
     )
     updater.start()
     server.start()
@@ -92,6 +93,7 @@ def main() -> None:
     )
     server.warm_up_enabled_backends()
     print(f"FinanceAnaHub online em http://{config.panel_host}:{config.panel_port}")
+    print("Update hook: POST /hub/api/update/check (token opcional em HUB_UPDATE_WEBHOOK_SECRET)")
     print("Ctrl+C para encerrar")
     try:
         while True:

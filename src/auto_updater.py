@@ -22,6 +22,7 @@ class AutoUpdater:
         self.remote = (remote or "origin").strip()
         self.branch = (branch or "main").strip()
         self._stop = threading.Event()
+        self._wake = threading.Event()
         self._restart_requested = threading.Event()
         self._thread = None
         self._checked_env = False
@@ -99,12 +100,10 @@ class AutoUpdater:
             f"intervalo={self.interval_minutes}min"
         )
         while not self._stop.is_set():
-            for _ in range(self.interval_minutes * 60):
-                if self._stop.is_set():
-                    return
-                time.sleep(1)
+            self._wake.wait(timeout=self.interval_minutes * 60)
             if self._stop.is_set():
                 return
+            self._wake.clear()
             self._update_once()
 
     def start(self):
@@ -114,13 +113,25 @@ class AutoUpdater:
             return
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
+        # Forca checagem imediata no startup.
+        self._wake.set()
 
     def stop(self):
         self._stop.set()
+        self._wake.set()
+
+    def trigger_check(self, reason: str = "manual") -> bool:
+        if not self._check_env():
+            return False
+        self._wake.set()
+        try:
+            print(f"[Hub Updater] Checagem imediata solicitada ({reason})")
+        except Exception:
+            pass
+        return True
 
     def consume_restart_request(self) -> bool:
         if self._restart_requested.is_set():
             self._restart_requested.clear()
             return True
         return False
-
