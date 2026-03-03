@@ -107,6 +107,5 @@ def main() -> None:
         server.stop()
         updater.stop()
 
-
 if __name__ == "__main__":
     main()

@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import traceback
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 from datetime import datetime
@@ -44,6 +45,111 @@ def _redirect_response(handler: BaseHTTPRequestHandler, location: str):
     handler.send_response(302)
     handler.send_header("Location", location)
     handler.end_headers()
+
+
+def _decode_text_payload(body: bytes, content_type: str) -> str | None:
+    charset = ""
+    try:
+        match = re.search(r"charset=([^\s;]+)", content_type or "", flags=re.IGNORECASE)
+        if match:
+            charset = (match.group(1) or "").strip().strip("\"'")
+    except Exception:
+        charset = ""
+
+    encodings = []
+    if charset:
+        encodings.append(charset)
+    encodings.extend(["utf-8", "cp1252", "latin-1"])
+
+    for enc in encodings:
+        try:
+            return body.decode(enc)
+        except Exception:
+            continue
+    return None
+
+
+def _normalize_ptbr_text(text: str) -> str:
+    if not text:
+        return text
+
+    out = text
+    markers = ("Ã", "Â", "â", "ðŸ", "�")
+    if any(m in out for m in markers):
+        try:
+            repaired = out.encode("latin-1").decode("utf-8")
+            if repaired:
+                out = repaired
+        except Exception:
+            pass
+
+    replacements = {
+        "Ã¡": "á",
+        "Ã¢": "â",
+        "Ã£": "ã",
+        "Ã ": "à",
+        "Ã©": "é",
+        "Ãª": "ê",
+        "Ã­": "í",
+        "Ã³": "ó",
+        "Ã´": "ô",
+        "Ãµ": "õ",
+        "Ãº": "ú",
+        "Ã§": "ç",
+        "Ã": "Á",
+        "Ã‰": "É",
+        "Ã": "Í",
+        "Ã“": "Ó",
+        "Ãš": "Ú",
+        "Ã‡": "Ç",
+        "â€“": "–",
+        "â€”": "—",
+        "â€œ": "“",
+        "â€": "”",
+        "â€˜": "‘",
+        "â€™": "’",
+        "Â ": "",
+    }
+    for src, dst in replacements.items():
+        out = out.replace(src, dst)
+    return out
+
+
+def _inject_back_to_hub_button(html: str) -> str:
+    if 'id="hub-back-button"' in html:
+        return html
+
+    snippet = """
+<style id="hub-back-button-style">
+#hub-back-button{
+  position:fixed;
+  top:16px;
+  left:16px;
+  z-index:2147483647;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 14px;
+  border-radius:999px;
+  border:2px solid #176fe5;
+  background:#ffffff;
+  color:#176fe5;
+  font-family:'Lexend',sans-serif;
+  font-size:14px;
+  font-weight:700;
+  text-decoration:none;
+  box-shadow:0 6px 18px rgba(23,111,229,.18);
+}
+#hub-back-button:hover{
+  background:#176fe5;
+  color:#ffffff;
+}
+</style>
+<a id="hub-back-button" href="/" aria-label="Voltar ao Hub">← Voltar ao Hub</a>
+"""
+    if "</body>" in html:
+        return html.replace("</body>", f"{snippet}\n</body>")
+    return html + snippet
 
 
 class HubHttpServer:
@@ -421,9 +527,8 @@ class HubHttpServer:
         ctype = (content_type or "").lower()
         if "text/html" not in ctype and "javascript" not in ctype:
             return body
-        try:
-            text = body.decode("utf-8", errors="ignore")
-        except Exception:
+        text = _decode_text_payload(body, content_type)
+        if text is None:
             return body
 
         # API and auth routes
@@ -462,6 +567,10 @@ class HubHttpServer:
             text = text.replace(f"url({p}", f"url(/{prefix}{p}")
             text = text.replace(f'url("{p}', f'url("/{prefix}{p}')
             text = text.replace(f"url('{p}", f"url('/{prefix}{p}")
+
+        text = _normalize_ptbr_text(text)
+        if "text/html" in ctype:
+            text = _inject_back_to_hub_button(text)
 
         return text.encode("utf-8")
 
@@ -524,7 +633,7 @@ class HubHttpServer:
             handler.wfile.write(raw)
             return
         except Exception as exc:
-            _html_response(handler, 502, f"<h1>Backend indisponivel</h1><p>{exc}</p>")
+            _html_response(handler, 502, f"<h1>Backend indisponível</h1><p>{exc}</p>")
 
     def warm_up_enabled_backends(self) -> None:
         cfg = self.settings.load()
@@ -572,12 +681,12 @@ class HubHttpServer:
                             return _html_response(
                                 self,
                                 503,
-                                f"<h1>{inst.display_name} indisponivel</h1>"
-                                "<p>Nao foi possivel iniciar ou alcancar o backend configurado</p>",
+                                f"<h1>{inst.display_name} indisponível</h1>"
+                                "<p>Não foi possível iniciar ou alcançar o backend configurado.</p>",
                             )
                         return self.server.hub_ref._proxy(self, inst)
 
-                return _json_response(self, 404, {"ok": False, "error": "Nao encontrado"})
+                return _json_response(self, 404, {"ok": False, "error": "Não encontrado"})
 
             def do_GET(self):
                 return self._route()
@@ -668,7 +777,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         padded.append(
             InstanceConfig(
                 instance_id=f"placeholder_{len(padded)}",
-                display_name="Spoke page",
+                display_name="Em breve",
                 instance_type="module",
                 enabled=False,
                 route_prefix="",
@@ -684,14 +793,14 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         y = int(math.sin(angle) * radius)
         color = colors[i]
         prefix = str(getattr(inst, "route_prefix", "") or "").strip("/")
-        name = str(getattr(inst, "display_name", "Spoke page"))
+        name = str(getattr(inst, "display_name", "Em breve"))
         parts = [p for p in name.split() if p]
         if len(parts) >= 2:
             label = f"{parts[0]}<br>{parts[1]}"
         elif parts:
             label = parts[0]
         else:
-            label = "Spoke<br>page"
+            label = "Em breve"
         href = f"/{prefix}/" if prefix else "#"
         if not prefix:
             spoke_tag = f'<a class="node spoke" style="pointer-events:none;opacity:.92;--x:{x}px;--y:{y}px;--c:{color}" href="#">'
@@ -712,25 +821,25 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Hub MVA</title>
+  <title>FinanceAnaHub</title>
   <style>
 """ + _base_styles() + """
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="title-wrap"><h1 class="title">Hub MVA</h1></div>
+    <div class="title-wrap"><h1 class="title">FinanceAnaHub</h1></div>
     <div class="hub-wrap">
       <div class="hub-diagram">
 """ + "".join(spokes) + """
         <div class="hub-shell"></div>
         <div class="hub-core">
-          <div class="hub-label-top">Contact Us</div>
+          <div class="hub-label-top">Suporte</div>
           <div class="hub-center">
-            <small>Customer</small>
-            <small>Service</small>
+            <small>Central</small>
+            <small>Hub</small>
           </div>
-          <div class="hub-label-bottom">FAQ</div>
+          <div class="hub-label-bottom">Ajuda</div>
         </div>
       </div>
     </div>
