@@ -1030,10 +1030,10 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
           });
         })
         .then(([sucessoRequisicao, dadosResposta]) => {
-          if (sucessoRequisicao && dadosResposta.status === "success") {
-            window.alert("Sistema de correção iniciado com sucesso em segundo plano!");
+          if (sucessoRequisicao && dadosResposta.ok) {
+            window.alert(dadosResposta.friendly || "Sistema de correção iniciado com sucesso em segundo plano!");
           } else {
-            window.alert("Erro ao iniciar a correção: " + (dadosResposta.message || "Erro desconhecido"));
+            window.alert("Erro ao iniciar a correção: " + (dadosResposta.friendly || dadosResposta.message || "Erro desconhecido"));
           }
         })
         .catch((erroRequisicao) => {
