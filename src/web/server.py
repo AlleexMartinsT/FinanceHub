@@ -876,6 +876,11 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
       <h3 style="margin-top: 0; margin-bottom: 15px;">Gerar Relatório de Lançamentos (NFs)</h3>
       <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <select id="filtro-empresa" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <option value="todos">Ambas as Empresas</option>
+            <option value="MVA">Apenas MVA</option>
+            <option value="EH">Apenas Horizonte (EH)</option>
+        </select>
         <select id="filtro-tipo" onchange="mudarFiltro()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
             <option value="todos">Toda a Planilha</option>
             <option value="mes">Por Mês</option>
@@ -923,8 +928,10 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 
     function gerarRelatorio() {
         const tipo = document.getElementById("filtro-tipo").value;
+        const empresa = document.getElementById("filtro-empresa").value;
         let queryParams = new URLSearchParams();
         queryParams.append("filtro", tipo);
+        queryParams.append("empresa", empresa);
         
         if (tipo === "mes") {
             queryParams.append("mes", document.getElementById("input-mes").value);
@@ -997,7 +1004,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             linhasCsv.push(row.join(";"));
         });
         
-        const blob = new Blob(["\uFEFF" + linhasCsv.join("\n")], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob(["\\uFEFF" + linhasCsv.join("\\n")], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
