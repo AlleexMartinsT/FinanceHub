@@ -874,7 +874,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     </div>
 
     <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-      <h3 style="margin-top: 0; margin-bottom: 15px;">Gerar Relatório de Lançamentos (NFs)</h3>
+      <h3 style="margin-top: 0; margin-bottom: 15px;">Verificar NFs Faltantes</h3>
       <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <select id="filtro-empresa" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
             <option value="todos">Ambas as Empresas</option>
@@ -882,34 +882,28 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             <option value="EH">Apenas Horizonte (EH)</option>
         </select>
         <select id="filtro-tipo" onchange="mudarFiltro()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-            <option value="todos">Toda a Planilha</option>
-            <option value="mes">Por Mês</option>
             <option value="nfs">Por Range de NF</option>
+            <option value="mes">Por Mês</option>
+            <option value="todos">Toda a Planilha</option>
         </select>
-
         <div id="div-mes" style="display: none;">
             <input type="month" id="input-mes" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
         </div>
-
-        <div id="div-nfs" style="display: none; align-items: center; gap: 5px;">
+        <div id="div-nfs" style="display: flex; align-items: center; gap: 5px;">
             <input type="number" id="input-nf-inicio" placeholder="De NF Ex: 49000" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 140px;">
             <span>até</span>
             <input type="number" id="input-nf-fim" placeholder="Até NF Ex: 50000" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 140px;">
         </div>
-
-        <button id="btn-gerar-relatorio" onclick="gerarRelatorio()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #28a745; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Gerar Tabela</button>
+        <button id="btn-gerar-relatorio" onclick="gerarRelatorio()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #28a745; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Verificar Faltantes</button>
         <button id="btn-baixar-csv" onclick="baixarCSV()" style="display: none; padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #6c757d; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Baixar CSV</button>
       </div>
-      
-      <div id="tabela-container" style="margin-top: 20px; max-height: 400px; overflow-y: auto; display: none;">
+      <div id="resumo-container" style="margin-top: 15px; display: none; padding: 12px; border-radius: 6px; background: #e9ecef; font-size: 14px;"></div>
+      <div id="tabela-container" style="margin-top: 15px; max-height: 400px; overflow-y: auto; display: none;">
         <table style="width: 100%; border-collapse: collapse; text-align: left;">
             <thead>
-                <tr style="background-color: #eee;">
-                    <th style="padding: 8px; border: 1px solid #ddd;">Data</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">Planilha</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">NF</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">Fornecedor e BLT</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">Valor</th>
+                <tr style="background-color: #f8d7da;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">#</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">NF Faltante</th>
                 </tr>
             </thead>
             <tbody id="tabela-corpo"></tbody>
@@ -918,7 +912,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     </div>
   </div>
   <script>
-    let dadosRelatorioAtual = [];
+    let dadosRelatorioAtual = {};
 
     function mudarFiltro() {
         const tipo = document.getElementById("filtro-tipo").value;
@@ -945,70 +939,72 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         btn.disabled = true;
 
         fetch("/botana/api/relatorio-nfs?" + queryParams.toString())
-            .then(res => res.json())
-            .then(data => {
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
                 if (data.status === "success") {
-                    dadosRelatorioAtual = data.items;
-                    renderizarTabela();
+                    dadosRelatorioAtual = data;
+                    renderizarResultado();
                 } else {
-                    alert("Erro ao gerar relatório: " + data.message);
+                    alert("Erro ao gerar relatório: " + (data.message || "Erro desconhecido"));
                 }
             })
-            .catch(err => alert("Erro de rede: " + err))
-            .finally(() => {
-                btn.innerText = "Gerar Tabela";
+            .catch(function(err) { alert("Erro de rede: " + err); })
+            .finally(function() {
+                btn.innerText = "Verificar Faltantes";
                 btn.disabled = false;
             });
     }
 
-    function renderizarTabela() {
-        const container = document.getElementById("tabela-container");
-        const tbody = document.getElementById("tabela-corpo");
+    function renderizarResultado() {
+        var resumo = document.getElementById("resumo-container");
+        var container = document.getElementById("tabela-container");
+        var tbody = document.getElementById("tabela-corpo");
+        var d = dadosRelatorioAtual;
         tbody.innerHTML = "";
-        
-        if (dadosRelatorioAtual.length === 0) {
-            tbody.innerHTML = "<tr><td colspan='5' style='padding: 8px; border: 1px solid #ddd; text-align: center;'>Nenhum dado encontrado para os filtros selecionados.</td></tr>";
-        } else {
-            dadosRelatorioAtual.forEach(item => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td style="padding: 8px; border: 1px solid #ddd;">${item.Data}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${item.Planilha} (${item.Aba})</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;"><b>${item.NF}</b></td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${item.Descricao}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${item.Valor}</td>
-                `;
+
+        var totalFaltante = d.totalFaltante || 0;
+        var totalEncontrado = d.totalEncontrado || 0;
+        var totalEsperado = d.totalEsperado || 0;
+
+        var corFundo = totalFaltante === 0 ? "#d4edda" : "#f8d7da";
+        var mensagem = totalFaltante === 0
+            ? "<b>Nenhuma NF faltante!</b> Todas as " + totalEncontrado + " NFs do intervalo " + d.rangeInicio + " a " + d.rangeFim + " estão presentes."
+            : "<b>" + totalFaltante + " NF(s) faltante(s)</b> no intervalo " + d.rangeInicio + " a " + d.rangeFim + ". Encontradas: " + totalEncontrado + " de " + totalEsperado + " esperadas.";
+
+        resumo.style.background = corFundo;
+        resumo.innerHTML = mensagem;
+        resumo.style.display = "block";
+
+        if (totalFaltante > 0) {
+            var faltantes = d.faltantes || [];
+            for (var idx = 0; idx < faltantes.length; idx++) {
+                var tr = document.createElement("tr");
+                tr.innerHTML = '<td style="padding: 8px; border: 1px solid #ddd;">' + (idx + 1) + '</td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #c0392b;">' + faltantes[idx].NF + '</td>';
                 tbody.appendChild(tr);
-            });
+            }
+            container.style.display = "block";
             document.getElementById("btn-baixar-csv").style.display = "inline-block";
+        } else {
+            container.style.display = "none";
+            document.getElementById("btn-baixar-csv").style.display = "none";
         }
-        
-        container.style.display = "block";
     }
 
     function baixarCSV() {
-        if (!dadosRelatorioAtual || dadosRelatorioAtual.length === 0) return;
+        var d = dadosRelatorioAtual;
+        var faltantes = d.faltantes || [];
+        if (faltantes.length === 0) return;
         
-        let header = ["Data", "Planilha", "Aba", "NF", "Descricao", "Valor"];
-        let linhasCsv = [header.join(";")];
+        var linhasCsv = ["NF Faltante"];
+        for (var i = 0; i < faltantes.length; i++) {
+            linhasCsv.push(String(faltantes[i].NF));
+        }
         
-        dadosRelatorioAtual.forEach(item => {
-            let row = [
-                item.Data,
-                item.Planilha,
-                item.Aba,
-                item.NF,
-                item.Descricao.replace(/;/g, ","),
-                item.Valor
-            ];
-            linhasCsv.push(row.join(";"));
-        });
-        
-        const blob = new Blob(["\\uFEFF" + linhasCsv.join("\\n")], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
+        var blob = new Blob(["\\uFEFF" + linhasCsv.join("\\n")], { type: "text/csv;charset=utf-8;" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
         a.href = url;
-        a.download = "relatorio_lancamentos.csv";
+        a.download = "nfs_faltantes_" + d.rangeInicio + "_a_" + d.rangeFim + ".csv";
         a.click();
         URL.revokeObjectURL(url);
     }
