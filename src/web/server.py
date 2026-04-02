@@ -866,5 +866,43 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       </div>
     </div>
   </div>
+  <div class="actions-panel" style="margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px;">
+    <h3 style="margin-bottom: 10px;">Ferramentas de Manutenção (Botana)</h3>
+    <button id="btn-corrigir" class="btn" onclick="iniciarCorrecao()" style="padding: 12px 24px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background-color: #176fe5; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Corrigir Boletos Retrospectivos</button>
+  </div>
+  <script>
+    function iniciarCorrecao() {
+      const BOTAO_MENSAGEM = "Corrigir Boletos Retrospectivos";
+      const BOTAO_MENSAGEM_CARREGANDO = "Processando...";
+      const URL_CORRECAO = "/botana/api/clean-sheets";
+      
+      let botaoCorrigir = document.getElementById("btn-corrigir");
+      botaoCorrigir.innerText = BOTAO_MENSAGEM_CARREGANDO;
+      botaoCorrigir.disabled = true;
+      botaoCorrigir.style.background = "#9cdaf8";
+      
+      fetch(URL_CORRECAO, { method: "POST" })
+        .then((respostaServidor) => {
+          return respostaServidor.json().then((dadosResposta) => {
+            return [respostaServidor.ok, dadosResposta];
+          });
+        })
+        .then(([sucessoRequisicao, dadosResposta]) => {
+          if (sucessoRequisicao && dadosResposta.status === "success") {
+            window.alert("Sistema de correção iniciado com sucesso em segundo plano!");
+          } else {
+            window.alert("Erro ao iniciar a correção: " + (dadosResposta.message || "Erro desconhecido"));
+          }
+        })
+        .catch((erroRequisicao) => {
+          window.alert("Erro de comunicação com o servidor: " + erroRequisicao);
+        })
+        .finally(() => {
+          botaoCorrigir.innerText = BOTAO_MENSAGEM;
+          botaoCorrigir.disabled = false;
+          botaoCorrigir.style.background = "#176fe5";
+        });
+    }
+  </script>
 </body>
 </html>"""
