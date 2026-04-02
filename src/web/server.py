@@ -870,7 +870,20 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     
     <div>
       <h3 style="margin-bottom: 10px;">Ferramentas de Manutenção (Botana)</h3>
-      <button id="btn-corrigir" class="btn" onclick="iniciarCorrecao()" style="padding: 12px 24px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background-color: #176fe5; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Corrigir Boletos Retrospectivos</button>
+      <div style="background: #f0f4ff; padding: 15px; border-radius: 8px; border: 1px solid #b0c4de;">
+        <h4 style="margin-top: 0; margin-bottom: 10px;">Corrigir Boletos Retrospectivos</h4>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+          <select id="correcao-empresa" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <option value="todos">Ambas as Empresas</option>
+            <option value="MVA">Apenas MVA</option>
+            <option value="EH">Apenas Horizonte (EH)</option>
+          </select>
+          <input type="text" id="correcao-aba" placeholder="Filtrar por aba (ex: Janeiro)" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 180px;">
+          <button id="btn-corrigir" onclick="iniciarCorrecao()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #176fe5; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Iniciar Correção</button>
+        </div>
+        <div id="correcao-log-container" style="display: none; background: #1e1e2e; color: #cdd6f4; border-radius: 6px; padding: 12px; max-height: 320px; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6;">
+        </div>
+      </div>
     </div>
 
     <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
@@ -1009,37 +1022,90 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         URL.revokeObjectURL(url);
     }
 
+    var pollingCorrecaoTimer = null;
+    var pollingCorrecaoDesde = 0;
+
     function iniciarCorrecao() {
-      const BOTAO_MENSAGEM = "Corrigir Boletos Retrospectivos";
-      const BOTAO_MENSAGEM_CARREGANDO = "Processando...";
-      const URL_CORRECAO = "/botana/api/clean-sheets";
-      
-      let botaoCorrigir = document.getElementById("btn-corrigir");
-      botaoCorrigir.innerText = BOTAO_MENSAGEM_CARREGANDO;
-      botaoCorrigir.disabled = true;
-      botaoCorrigir.style.background = "#9cdaf8";
-      
-      fetch(URL_CORRECAO, { method: "POST" })
-        .then((respostaServidor) => {
-          return respostaServidor.json().then((dadosResposta) => {
-            return [respostaServidor.ok, dadosResposta];
-          });
-        })
-        .then(([sucessoRequisicao, dadosResposta]) => {
-          if (sucessoRequisicao && dadosResposta.ok) {
-            window.alert(dadosResposta.friendly || "Sistema de correção iniciado com sucesso em segundo plano!");
-          } else {
-            window.alert("Erro ao iniciar a correção: " + (dadosResposta.friendly || dadosResposta.message || "Erro desconhecido"));
+      var empresaSelecionada = document.getElementById("correcao-empresa").value;
+      var abaFiltro = document.getElementById("correcao-aba").value.trim();
+      var btn = document.getElementById("btn-corrigir");
+      var logContainer = document.getElementById("correcao-log-container");
+
+      btn.innerText = "Processando...";
+      btn.disabled = true;
+      btn.style.background = "#9cdaf8";
+      logContainer.innerHTML = "";
+      logContainer.style.display = "block";
+      pollingCorrecaoDesde = 0;
+
+      fetch("/botana/api/clean-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ empresa: empresaSelecionada, aba: abaFiltro })
+      })
+      .then(function(res) { return res.json().then(function(d) { return [res.ok, d]; }); })
+      .then(function(arr) {
+        var ok = arr[0]; var dados = arr[1];
+        if (ok && dados.ok) {
+          adicionarLinhaLog("info", dados.friendly || "Correção iniciada.");
+          iniciarPollingLog();
+        } else {
+          adicionarLinhaLog("erro", dados.friendly || dados.message || "Erro ao iniciar.");
+          btn.innerText = "Iniciar Correção";
+          btn.disabled = false;
+          btn.style.background = "#176fe5";
+        }
+      })
+      .catch(function(err) {
+        adicionarLinhaLog("erro", "Erro de rede: " + err);
+        btn.innerText = "Iniciar Correção";
+        btn.disabled = false;
+        btn.style.background = "#176fe5";
+      });
+    }
+
+    function iniciarPollingLog() {
+      if (pollingCorrecaoTimer) clearInterval(pollingCorrecaoTimer);
+      pollingCorrecaoTimer = setInterval(function() { buscarLog(); }, 2000);
+      buscarLog();
+    }
+
+    function buscarLog() {
+      fetch("/botana/api/clean-sheets/log?desde=" + pollingCorrecaoDesde)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            var entradas = data.entries || [];
+            for (var i = 0; i < entradas.length; i++) {
+              adicionarLinhaLog(entradas[i].tipo, "[" + entradas[i].ts + "] " + entradas[i].msg);
+            }
+            pollingCorrecaoDesde = data.total || 0;
+
+            if (!data.ativo && entradas.length === 0) {
+              clearInterval(pollingCorrecaoTimer);
+              pollingCorrecaoTimer = null;
+              var btn = document.getElementById("btn-corrigir");
+              btn.innerText = "Iniciar Correção";
+              btn.disabled = false;
+              btn.style.background = "#176fe5";
+              adicionarLinhaLog("info", "--- Processo finalizado ---");
+            }
           }
         })
-        .catch((erroRequisicao) => {
-          window.alert("Erro de comunicação com o servidor: " + erroRequisicao);
-        })
-        .finally(() => {
-          botaoCorrigir.innerText = BOTAO_MENSAGEM;
-          botaoCorrigir.disabled = false;
-          botaoCorrigir.style.background = "#176fe5";
-        });
+        .catch(function() {});
+    }
+
+    function adicionarLinhaLog(tipo, msg) {
+      var logContainer = document.getElementById("correcao-log-container");
+      var linha = document.createElement("div");
+      var cor = "#cdd6f4";
+      if (tipo === "correcao") cor = "#f9e2af";
+      if (tipo === "erro") cor = "#f38ba8";
+      if (tipo === "info") cor = "#a6e3a1";
+      linha.style.color = cor;
+      linha.textContent = msg;
+      logContainer.appendChild(linha);
+      logContainer.scrollTop = logContainer.scrollHeight;
     }
   </script>
 </body>
