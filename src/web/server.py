@@ -756,36 +756,449 @@ class HubHttpServer:
 def _base_styles() -> str:
     return """
     @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;900&display=swap');
-    :root{--bg:#eff0f2;--ink:#131313;--hub:#176fe5;--hub-center:#9cdaf8}
-    body{font-family:'Lexend',sans-serif;background:var(--bg);margin:0;padding:16px;color:var(--ink)}
+    :root{
+      --bg:#f7f4ee;
+      --bg-soft:#fffaf3;
+      --card:#fffdf9;
+      --card-alt:#f6fbff;
+      --ink:#16202b;
+      --muted:#5e6773;
+      --line:#dfd5c8;
+      --line-soft:#ece4d8;
+      --hub:#176fe5;
+      --hub-center:#9cdaf8;
+      --accent:#ef8b51;
+      --accent-soft:#fff1e3;
+      --ok:#2f9e6f;
+      --warn:#c67b1f;
+      --shadow:0 22px 60px rgba(30,25,18,.10);
+    }
+    body{
+      font-family:'Lexend',sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(23,111,229,.10), transparent 32%),
+        radial-gradient(circle at top right, rgba(239,139,81,.10), transparent 26%),
+        linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+      margin:0;
+      padding:20px;
+      color:var(--ink);
+    }
     *{font-family:'Lexend',sans-serif}
-    .container{max-width:900px;margin:0 auto;text-align:center}
-    .title-wrap{display:inline-block;position:relative;margin-top:4px}
-    .title-wrap::after{content:"";position:absolute;left:-8px;right:-8px;height:14px;bottom:6px;background:#c8f1ff;z-index:0}
-    .title{position:relative;z-index:1;font-size:58px;font-weight:900;line-height:1;margin:0}
-    .hub-wrap{display:flex;justify-content:center;align-items:center;margin-top:8px}
-    .hub-diagram{position:relative;width:740px;height:740px;max-width:96vw;max-height:96vw}
-    .node{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y)));display:flex;align-items:center;justify-content:center;text-decoration:none;color:#232323}
-    .spoke{width:132px;height:132px;border-radius:999px;background:#fff;border:7px solid var(--c);font-size:0;box-sizing:border-box;padding:14px;text-align:center}
-    .spoke-label{font-size:18px;font-weight:700;line-height:1.08;display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:100%;text-align:center}
-    .connector{position:absolute;left:50%;top:50%;width:5px;height:122px;background:var(--c);transform:translate(-50%,-50%) rotate(var(--a)) translateY(-190px);transform-origin:center}
-    .hub-shell{position:absolute;left:50%;top:50%;width:252px;height:252px;border-radius:999px;transform:translate(-50%,-50%);background:conic-gradient(#5f87d9 0 60deg,#45c3ac 60deg 120deg,#b6d45b 120deg 180deg,#f2ac73 180deg 240deg,#ba8fe8 240deg 300deg,#5f87d9 300deg 360deg)}
-    .hub-core{position:absolute;left:50%;top:50%;width:236px;height:236px;border-radius:999px;transform:translate(-50%,-50%);background:var(--hub);display:flex;align-items:center;justify-content:center}
-    .hub-center{width:116px;height:116px;border-radius:999px;background:var(--hub-center);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:38px;line-height:1.02;color:#0f172a}
-    .hub-center small{font-size:16px;font-weight:700}
-    .hub-label-top{position:absolute;left:50%;top:66px;transform:translateX(-50%) rotate(-11deg);color:#fff;font-size:31px;font-weight:700;line-height:1}
-    .hub-label-bottom{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);color:#fff;font-size:34px;font-weight:700;line-height:1}
+    .container{max-width:1240px;margin:0 auto}
+    .hero-panel{
+      display:grid;
+      grid-template-columns:minmax(0,1.35fr) minmax(280px,.95fr);
+      gap:22px;
+      background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(248,250,255,.96));
+      border:1px solid rgba(23,111,229,.12);
+      border-radius:28px;
+      padding:28px;
+      box-shadow:var(--shadow);
+    }
+    .hero-copy{text-align:left}
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(23,111,229,.10);
+      color:var(--hub);
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+    }
+    .title-wrap{display:inline-block;position:relative;margin-top:14px}
+    .title-wrap::after{content:"";position:absolute;left:-10px;right:-10px;height:16px;bottom:7px;background:#d8f1ff;z-index:0;border-radius:999px}
+    .title{position:relative;z-index:1;font-size:62px;font-weight:900;line-height:.95;margin:0}
+    .subtitle{
+      margin:18px 0 0;
+      max-width:780px;
+      color:var(--muted);
+      font-size:18px;
+      line-height:1.6;
+    }
+    .metric-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+      margin-top:22px;
+    }
+    .metric-card{
+      background:var(--card);
+      border:1px solid var(--line-soft);
+      border-radius:20px;
+      padding:18px;
+      min-height:110px;
+      box-shadow:0 10px 28px rgba(22,32,43,.05);
+    }
+    .metric-card strong{
+      display:block;
+      font-size:34px;
+      line-height:1;
+      color:var(--hub);
+    }
+    .metric-card span{
+      display:block;
+      margin-top:10px;
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+    .chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line-soft);
+      color:#2d3b4a;
+      font-size:14px;
+      font-weight:600;
+    }
+    .chip::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:var(--ok);
+      flex:0 0 auto;
+    }
+    .hero-note{
+      background:linear-gradient(180deg, var(--card), #fff7ee);
+      border:1px solid rgba(239,139,81,.20);
+      border-radius:24px;
+      padding:24px;
+      text-align:left;
+    }
+    .hero-note h2{margin:0;font-size:24px;line-height:1.1}
+    .hero-note p{margin:12px 0 0;color:var(--muted);font-size:15px;line-height:1.6}
+    .hero-note-grid{
+      display:grid;
+      gap:12px;
+      margin-top:18px;
+    }
+    .hero-note-item{
+      background:rgba(255,255,255,.74);
+      border:1px solid rgba(239,139,81,.16);
+      border-radius:18px;
+      padding:14px 16px;
+    }
+    .hero-note-item strong{display:block;font-size:15px}
+    .hero-note-item span{display:block;margin-top:6px;font-size:13px;line-height:1.5;color:var(--muted)}
+    .hub-panel{
+      margin-top:24px;
+      background:rgba(255,255,255,.80);
+      border:1px solid rgba(22,32,43,.08);
+      border-radius:28px;
+      padding:24px;
+      box-shadow:var(--shadow);
+    }
+    .panel-head{
+      display:flex;
+      justify-content:space-between;
+      gap:18px;
+      align-items:flex-start;
+      margin-bottom:18px;
+    }
+    .panel-title-wrap{text-align:left}
+    .panel-kicker{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:var(--hub);
+    }
+    .panel-title{
+      margin:8px 0 0;
+      font-size:28px;
+      line-height:1.1;
+    }
+    .panel-copy{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      max-width:760px;
+    }
+    .panel-pill{
+      display:inline-flex;
+      align-items:center;
+      padding:10px 14px;
+      border-radius:999px;
+      background:var(--accent-soft);
+      color:#8b4d1f;
+      font-size:13px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .hub-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);
+      gap:26px;
+      align-items:center;
+    }
+    .hub-stage{
+      background:linear-gradient(180deg, #f7fbff, #fff8f1);
+      border:1px solid var(--line-soft);
+      border-radius:24px;
+      padding:18px 18px 20px;
+    }
+    .hub-wrap{display:flex;justify-content:center;align-items:center}
+    .hub-diagram{position:relative;width:680px;height:680px;max-width:100%;max-height:100%}
+    .node{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y)));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+      color:#232323;
+      transition:transform .22s ease, filter .22s ease;
+    }
+    .node:hover{transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1.04);filter:drop-shadow(0 14px 20px rgba(22,32,43,.10))}
+    .spoke{
+      width:128px;
+      height:128px;
+      border-radius:999px;
+      background:#fff;
+      border:6px solid var(--c);
+      box-sizing:border-box;
+      padding:12px;
+      text-align:center;
+      box-shadow:0 18px 24px rgba(22,32,43,.08);
+    }
+    .spoke-label{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      min-height:100%;
+      text-align:center;
+    }
+    .spoke-label strong{display:block;font-size:18px;font-weight:700;line-height:1.1}
+    .spoke-meta{
+      display:inline-flex;
+      padding:5px 10px;
+      border-radius:999px;
+      background:rgba(22,32,43,.06);
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      color:#526070;
+    }
+    .connector{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:5px;
+      height:116px;
+      background:var(--c);
+      border-radius:999px;
+      transform:translate(-50%,-50%) rotate(var(--a)) translateY(-172px);
+      transform-origin:center;
+      opacity:.85;
+    }
+    .hub-shell{position:absolute;left:50%;top:50%;width:244px;height:244px;border-radius:999px;transform:translate(-50%,-50%);background:conic-gradient(#5f87d9 0 60deg,#45c3ac 60deg 120deg,#b6d45b 120deg 180deg,#f2ac73 180deg 240deg,#e2926a 240deg 300deg,#5f87d9 300deg 360deg);box-shadow:0 18px 28px rgba(22,32,43,.12)}
+    .hub-core{position:absolute;left:50%;top:50%;width:226px;height:226px;border-radius:999px;transform:translate(-50%,-50%);background:var(--hub);display:flex;align-items:center;justify-content:center}
+    .hub-center{width:112px;height:112px;border-radius:999px;background:var(--hub-center);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:38px;line-height:1.02;color:#0f172a}
+    .hub-center small{font-size:15px;font-weight:700}
+    .hub-label-top{position:absolute;left:50%;top:62px;transform:translateX(-50%) rotate(-10deg);color:#fff;font-size:28px;font-weight:700;line-height:1}
+    .hub-label-bottom{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);color:#fff;font-size:30px;font-weight:700;line-height:1}
+    .hub-caption{
+      margin:14px 12px 0;
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .guide-card{
+      background:linear-gradient(180deg, var(--card), #f7fcff);
+      border:1px solid var(--line-soft);
+      border-radius:24px;
+      padding:22px;
+      text-align:left;
+    }
+    .guide-card h3{margin:8px 0 0;font-size:24px;line-height:1.15}
+    .guide-card p{margin:10px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
+    .guide-list{display:grid;gap:12px;margin-top:18px}
+    .guide-item{
+      background:#fff;
+      border:1px solid var(--line-soft);
+      border-radius:18px;
+      padding:14px 16px;
+    }
+    .guide-item strong{display:block;font-size:14px}
+    .guide-item span{display:block;margin-top:6px;color:var(--muted);font-size:13px;line-height:1.5}
+    .actions-panel{
+      margin-top:24px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:20px;
+    }
+    .tool-card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:26px;
+      padding:24px;
+      box-shadow:var(--shadow);
+    }
+    .tool-card.tool-card-primary{background:linear-gradient(180deg, #f5f9ff, #fffdfb)}
+    .tool-card.tool-card-secondary{background:linear-gradient(180deg, #fffefb, #f9f7f2)}
+    .tool-head{
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      align-items:flex-start;
+    }
+    .tool-kicker{
+      margin:0;
+      color:var(--hub);
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .tool-head h3{margin:8px 0 0;font-size:26px;line-height:1.12}
+    .tool-head p{margin:10px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
+    .tool-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:9px 12px;
+      border-radius:999px;
+      background:rgba(23,111,229,.10);
+      color:var(--hub);
+      font-size:12px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    }
+    .tool-helper{
+      margin-top:14px;
+      padding:14px 16px;
+      border-radius:18px;
+      background:var(--bg-soft);
+      border:1px solid var(--line-soft);
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .maintenance-controls{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      align-items:end;
+      margin-top:16px;
+    }
+    #nf-faltantes-card{padding:24px}
+    #nf-faltantes-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin-top:16px}
+    #nf-faltantes-controls > *{min-width:0}
+    #nf-faltantes-controls select,#nf-faltantes-controls input,#nf-faltantes-controls button{width:100%;box-sizing:border-box}
+    #div-nfs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
+    #div-nfs span{text-align:center;font-size:13px;font-weight:700;color:#475569}
+    select,input{
+      width:100%;
+      box-sizing:border-box;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid #d8d0c4;
+      background:#fffefa;
+      color:var(--ink);
+      font-size:14px;
+      outline:none;
+      transition:border-color .2s ease, box-shadow .2s ease;
+    }
+    select:focus,input:focus{
+      border-color:rgba(23,111,229,.55);
+      box-shadow:0 0 0 4px rgba(23,111,229,.10);
+    }
+    button{
+      width:100%;
+      box-sizing:border-box;
+      padding:12px 16px;
+      border:0;
+      border-radius:14px;
+      cursor:pointer;
+      font-size:14px;
+      font-weight:700;
+      transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+    button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(22,32,43,.10)}
+    button:disabled{cursor:default;opacity:.72;transform:none;box-shadow:none}
+    .btn-primary{background:var(--hub);color:#fff}
+    .btn-secondary{background:#2f9e6f;color:#fff}
+    .btn-neutral{background:#5a6471;color:#fff}
+    #correcao-log-container{
+      display:none;
+      margin-top:16px;
+      background:#151b27;
+      color:#d5def4;
+      border-radius:18px;
+      padding:14px;
+      max-height:320px;
+      overflow-y:auto;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:12px;
+      line-height:1.7;
+      border:1px solid rgba(156,218,248,.18);
+    }
+    #resumo-container{
+      margin-top:16px;
+      display:none;
+      padding:14px 16px;
+      border-radius:18px;
+      background:#eef3f7;
+      font-size:14px;
+      line-height:1.6;
+      border:1px solid #d7dde4;
+    }
+    #tabela-container{
+      margin-top:16px;
+      max-height:400px;
+      overflow-y:auto;
+      display:none;
+      border:1px solid var(--line-soft);
+      border-radius:18px;
+      background:#fff;
+    }
+    .data-table{width:100%;border-collapse:collapse;text-align:left}
+    .data-table thead tr{background:#fff2e9}
+    .data-table th,.data-table td{padding:10px 12px;border-bottom:1px solid var(--line-soft)}
+    .data-table tbody tr:nth-child(even){background:#fffcf8}
+    .data-table tbody tr:hover{background:#fff4ea}
     @media (max-width:760px){
+      body{padding:14px}
+      .hero-panel,.hub-layout,.actions-panel{grid-template-columns:1fr}
+      .panel-head,.tool-head{flex-direction:column}
+      .metric-grid,.maintenance-controls{grid-template-columns:1fr}
       .title{font-size:44px}
-      .spoke{width:106px;height:106px;border-width:6px;padding:10px}
-      .spoke-label{font-size:16px}
-      .connector{height:95px;transform:translate(-50%,-50%) rotate(var(--a)) translateY(-152px)}
-      .hub-shell{width:206px;height:206px}
-      .hub-core{width:192px;height:192px}
-      .hub-center{width:92px;height:92px;font-size:30px}
+      .hub-diagram{width:540px;height:540px}
+      .spoke{width:106px;height:106px;border-width:5px;padding:8px}
+      .spoke-label strong{font-size:15px}
+      .spoke-meta{font-size:10px;padding:4px 8px}
+      .connector{height:90px;transform:translate(-50%,-50%) rotate(var(--a)) translateY(-136px)}
+      .hub-shell{width:194px;height:194px}
+      .hub-core{width:180px;height:180px}
+      .hub-center{width:88px;height:88px;font-size:28px}
       .hub-center small{font-size:12px}
-      .hub-label-top{top:52px;font-size:24px}
-      .hub-label-bottom{bottom:44px;font-size:24px}
+      .hub-label-top{top:48px;font-size:22px}
+      .hub-label-bottom{bottom:38px;font-size:22px}
+      #nf-faltantes-controls{grid-template-columns:1fr}
+      #div-nfs{grid-template-columns:1fr}
     }
     """
 
@@ -808,6 +1221,10 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 
     spokes = []
     radius = 252
+    enabled_instances = [inst for inst in instances if bool(getattr(inst, "enabled", True))]
+    routed_instances = [inst for inst in enabled_instances if str(getattr(inst, "route_prefix", "") or "").strip()]
+    botana_instances = [inst for inst in routed_instances if str(getattr(inst, "instance_type", "") or "").strip().lower() == "botana"]
+    finance_instances = [inst for inst in routed_instances if str(getattr(inst, "instance_type", "") or "").strip().lower() != "botana"]
     for i, inst in enumerate(padded):
         angle_deg = slot_angles[i]
         angle = math.radians(angle_deg)
@@ -823,6 +1240,13 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             label = parts[0]
         else:
             label = "Em breve"
+        type_label = str(getattr(inst, "instance_type", "") or "modulo").strip().lower()
+        if not prefix:
+            meta_label = "Em breve"
+        elif type_label == "botana":
+            meta_label = "Botana"
+        else:
+            meta_label = "Financeiro"
         href = f"/{prefix}/" if prefix else "#"
         if not prefix:
             spoke_tag = f'<a class="node spoke" style="pointer-events:none;opacity:.92;--x:{x}px;--y:{y}px;--c:{color}" href="#">'
@@ -834,10 +1258,13 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             f"""
       <div class="connector" style="--a:{angle_deg}deg;--r:{radius}px;--c:{color}"></div>
       {spoke_tag}
-        <span class="spoke-label">{label}</span>
+        <span class="spoke-label"><strong>{label}</strong><span class="spoke-meta">{meta_label}</span></span>
       {spoke_close}
 """
         )
+    metrics_active = str(len(routed_instances))
+    metrics_botana = str(len(botana_instances))
+    metrics_finance = str(len(finance_instances))
     return """<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -850,79 +1277,185 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 </head>
 <body>
   <div class="container">
-    <div class="title-wrap"><h1 class="title">FinanceAnaHub</h1></div>
-    <div class="hub-wrap">
-      <div class="hub-diagram">
-""" + "".join(spokes) + """
-        <div class="hub-shell"></div>
-        <div class="hub-core">
-          <div class="hub-label-top">Suporte</div>
-          <div class="hub-center">
-            <small>Central</small>
-            <small>Hub</small>
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">CMD do Servidor • HUD Central</span>
+        <div class="title-wrap"><h1 class="title">FinanceAnaHub</h1></div>
+        <p class="subtitle">
+          O servidor agora concentra navegação, manutenção e validações financeiras em uma mesma HUD.
+          A ideia aqui é reduzir tentativa e erro: você entra, entende o estado do ambiente e já cai no fluxo certo.
+        </p>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <strong>""" + metrics_active + """</strong>
+            <span>Módulos com rota pronta para abrir direto pelo hub.</span>
           </div>
-          <div class="hub-label-bottom">Ajuda</div>
+          <div class="metric-card">
+            <strong>""" + metrics_botana + """</strong>
+            <span>Instância(s) Botana disponíveis para processamento e manutenção.</span>
+          </div>
+          <div class="metric-card">
+            <strong>""" + metrics_finance + """</strong>
+            <span>Painéis financeiros disponíveis para consulta e operação.</span>
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="chip">Correção guiada de boletos retrospectivos</span>
+          <span class="chip">Verificação rápida de NFs faltantes</span>
+          <span class="chip">Acesso centralizado aos módulos do ambiente</span>
         </div>
       </div>
-    </div>
-  </div>
-  <div class="actions-panel" style="margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px; display: flex; flex-direction: column; gap: 20px;">
-    
-    <div>
-      <h3 style="margin-bottom: 10px;">Ferramentas de Manutenção (Botana)</h3>
-      <div style="background: #f0f4ff; padding: 15px; border-radius: 8px; border: 1px solid #b0c4de;">
-        <h4 style="margin-top: 0; margin-bottom: 10px;">Corrigir Boletos Retrospectivos</h4>
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
-          <select id="correcao-empresa" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+      <aside class="hero-note">
+        <h2>O que dá para resolver daqui</h2>
+        <p>Esta HUD deixa o caminho mais explícito: primeiro você escolhe o módulo, depois aciona a ferramenta certa e acompanha o retorno sem depender só de texto solto.</p>
+        <div class="hero-note-grid">
+          <div class="hero-note-item">
+            <strong>Entrar no módulo certo</strong>
+            <span>O diagrama central mostra os atalhos ativos do ambiente para reduzir navegação manual.</span>
+          </div>
+          <div class="hero-note-item">
+            <strong>Corrigir base antiga</strong>
+            <span>A manutenção do Botana fica logo abaixo, com foco em correções retroativas e log contínuo.</span>
+          </div>
+          <div class="hero-note-item">
+            <strong>Checar cobertura da planilha</strong>
+            <span>O bloco de NFs faltantes resume o problema, destaca o intervalo e permite exportar o resultado.</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="hub-panel">
+      <div class="panel-head">
+        <div class="panel-title-wrap">
+          <div class="panel-kicker">Mapa operacional</div>
+          <h2 class="panel-title">Escolha o módulo pelo fluxo, não pelo chute</h2>
+          <p class="panel-copy">Cada círculo leva para um módulo ativo. O centro continua como ponto de orientação e os atalhos ao redor ajudam a separar rapidamente o que é Botana do que é frente financeira.</p>
+        </div>
+        <div class="panel-pill">Ambiente local organizado para operação diária</div>
+      </div>
+      <div class="hub-layout">
+        <div class="hub-stage">
+          <div class="hub-wrap">
+            <div class="hub-diagram">
+""" + "".join(spokes) + """
+              <div class="hub-shell"></div>
+              <div class="hub-core">
+                <div class="hub-label-top">Servidor</div>
+                <div class="hub-center">
+                  <small>Central</small>
+                  <small>Hub</small>
+                </div>
+                <div class="hub-label-bottom">CMD</div>
+              </div>
+            </div>
+          </div>
+          <p class="hub-caption">Os atalhos em volta do núcleo refletem os módulos prontos para uso. Os cards abaixo complementam essa navegação com ações operacionais guiadas.</p>
+        </div>
+        <aside class="guide-card">
+          <div class="panel-kicker">Leitura rápida</div>
+          <h3>Quando usar cada bloco</h3>
+          <p>A HUD foi reorganizada para ficar mais clara: primeiro você entra no módulo, depois usa a manutenção ou o diagnóstico que resolve o problema com menos passos.</p>
+          <div class="guide-list">
+            <div class="guide-item">
+              <strong>Módulos ao centro</strong>
+              <span>Abra o destino certo sem depender de lembrar rota ou porta manualmente.</span>
+            </div>
+            <div class="guide-item">
+              <strong>Manutenção do Botana</strong>
+              <span>Use quando o problema é retroativo, estrutural ou precisa de correção assistida com log.</span>
+            </div>
+            <div class="guide-item">
+              <strong>NFs faltantes</strong>
+              <span>Use quando a dúvida é cobertura da planilha: faixa, mês, empresa e exportação no mesmo bloco.</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="actions-panel">
+      <section class="tool-card tool-card-primary">
+        <div class="tool-head">
+          <div>
+            <p class="tool-kicker">Manutenção Guiada</p>
+            <h3>Corrigir boletos retrospectivos</h3>
+            <p>Acione o assistente do Botana sem sair da HUD. O foco aqui é correção de base antiga com retorno contínuo para você acompanhar o que está acontecendo.</p>
+          </div>
+          <span class="tool-badge">Botana</span>
+        </div>
+        <div class="tool-helper">Escolha a empresa, filtre a aba se quiser reduzir o escopo e acompanhe o log abaixo. O card fica com linguagem mais operacional para não te deixar preso em termos soltos.</div>
+        <div class="maintenance-controls">
+          <div>
+            <label for="correcao-empresa">Empresa</label>
+            <select id="correcao-empresa">
             <option value="todos">Ambas as Empresas</option>
             <option value="MVA">Apenas MVA</option>
             <option value="EH">Apenas Horizonte (EH)</option>
           </select>
-          <input type="text" id="correcao-aba" placeholder="Filtrar por aba (ex: Janeiro)" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 180px;">
-          <button id="btn-corrigir" onclick="iniciarCorrecao()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #176fe5; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Iniciar Correção</button>
+          </div>
+          <div>
+            <label for="correcao-aba">Aba específica</label>
+            <input type="text" id="correcao-aba" placeholder="Filtrar por aba, ex: Janeiro">
+          </div>
+          <button id="btn-corrigir" class="btn-primary" onclick="iniciarCorrecao()">Iniciar Correção</button>
         </div>
-        <div id="correcao-log-container" style="display: none; background: #1e1e2e; color: #cdd6f4; border-radius: 6px; padding: 12px; max-height: 320px; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6;">
-        </div>
-      </div>
-    </div>
+        <div id="correcao-log-container"></div>
+      </section>
 
-    <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-      <h3 style="margin-top: 0; margin-bottom: 15px;">Verificar NFs Faltantes</h3>
-      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <select id="filtro-empresa" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+      <section id="nf-faltantes-card" class="tool-card tool-card-secondary">
+        <div class="tool-head">
+          <div>
+            <p class="tool-kicker">Diagnóstico de Planilha</p>
+            <h3>Verificar NFs faltantes</h3>
+            <p>Escolha o recorte de análise e o Hub resume o que falta, o que foi encontrado e deixa a exportação pronta quando houver divergência.</p>
+          </div>
+          <span class="tool-badge">Financeiro</span>
+        </div>
+        <div class="tool-helper">Use este bloco quando a pergunta for cobertura da planilha. O fluxo foi mantido responsivo e com navegação por Enter para acelerar a conferência no dia a dia.</div>
+        <div id="nf-faltantes-controls">
+        <div>
+          <label for="filtro-empresa">Empresa</label>
+          <select id="filtro-empresa">
             <option value="todos">Ambas as Empresas</option>
             <option value="MVA">Apenas MVA</option>
             <option value="EH">Apenas Horizonte (EH)</option>
-        </select>
-        <select id="filtro-tipo" onchange="mudarFiltro()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+          </select>
+        </div>
+        <div>
+          <label for="filtro-tipo">Tipo de busca</label>
+          <select id="filtro-tipo" onchange="mudarFiltro()">
             <option value="nfs">Por Range de NF</option>
             <option value="mes">Por Mês</option>
             <option value="todos">Toda a Planilha</option>
-        </select>
+          </select>
+        </div>
         <div id="div-mes" style="display: none;">
-            <input type="month" id="input-mes" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+            <label for="input-mes">Mês</label>
+            <input type="month" id="input-mes">
         </div>
-        <div id="div-nfs" style="display: flex; align-items: center; gap: 5px;">
-            <input type="number" id="input-nf-inicio" placeholder="De NF Ex: 49000" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 140px;">
+        <div id="div-nfs">
+            <input type="number" id="input-nf-inicio" placeholder="De NF Ex: 49000">
             <span>até</span>
-            <input type="number" id="input-nf-fim" placeholder="Até NF Ex: 50000" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 140px;">
+            <input type="number" id="input-nf-fim" placeholder="Até NF Ex: 50000">
         </div>
-        <button id="btn-gerar-relatorio" onclick="gerarRelatorio()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #28a745; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Verificar Faltantes</button>
-        <button id="btn-baixar-csv" onclick="baixarCSV()" style="display: none; padding: 10px 20px; font-size: 14px; cursor: pointer; border-radius: 8px; border: none; background-color: #6c757d; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; transition: background 0.3s;">Baixar CSV</button>
+        <button id="btn-gerar-relatorio" class="btn-secondary" onclick="gerarRelatorio()">Verificar Faltantes</button>
+        <button id="btn-baixar-csv" class="btn-neutral" onclick="baixarCSV()" style="display: none;">Baixar CSV</button>
       </div>
-      <div id="resumo-container" style="margin-top: 15px; display: none; padding: 12px; border-radius: 6px; background: #e9ecef; font-size: 14px;"></div>
-      <div id="tabela-container" style="margin-top: 15px; max-height: 400px; overflow-y: auto; display: none;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <div id="resumo-container"></div>
+      <div id="tabela-container">
+        <table class="data-table">
             <thead>
-                <tr style="background-color: #f8d7da;">
-                    <th style="padding: 8px; border: 1px solid #ddd;">#</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">NF Faltante</th>
+                <tr>
+                    <th>#</th>
+                    <th>NF Faltante</th>
                 </tr>
             </thead>
             <tbody id="tabela-corpo"></tbody>
         </table>
       </div>
-    </div>
+      </section>
+    </section>
   </div>
   <script>
     let dadosRelatorioAtual = {};
@@ -930,7 +1463,65 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     function mudarFiltro() {
         const tipo = document.getElementById("filtro-tipo").value;
         document.getElementById("div-mes").style.display = (tipo === "mes") ? "block" : "none";
-        document.getElementById("div-nfs").style.display = (tipo === "nfs") ? "flex" : "none";
+        document.getElementById("div-nfs").style.display = (tipo === "nfs") ? "grid" : "none";
+    }
+
+    function _camposRelatorioVisiveis() {
+        var campos = [
+            document.getElementById("filtro-empresa"),
+            document.getElementById("filtro-tipo")
+        ];
+        var tipo = document.getElementById("filtro-tipo").value;
+        if (tipo === "mes") {
+            campos.push(document.getElementById("input-mes"));
+        } else if (tipo === "nfs") {
+            campos.push(document.getElementById("input-nf-inicio"));
+            campos.push(document.getElementById("input-nf-fim"));
+        }
+        campos.push(document.getElementById("btn-gerar-relatorio"));
+        return campos.filter(function(el) {
+            return !!el && !el.disabled && el.offsetParent !== null;
+        });
+    }
+
+    function _focarProximoCampoRelatorio(atual) {
+        var campos = _camposRelatorioVisiveis();
+        var idx = campos.indexOf(atual);
+        if (idx === -1) return;
+        var proximo = campos[idx + 1];
+        if (!proximo) return;
+        proximo.focus();
+        if (typeof proximo.select === "function" && proximo.tagName === "INPUT") {
+            proximo.select();
+        }
+    }
+
+    function _atalhoEnterRelatorio(event) {
+        if (event.key !== "Enter") return;
+        var alvo = event.target;
+        if (!alvo || alvo.id === "btn-baixar-csv") return;
+        event.preventDefault();
+        if (alvo.id === "btn-gerar-relatorio") {
+            gerarRelatorio();
+            return;
+        }
+        _focarProximoCampoRelatorio(alvo);
+    }
+
+    function configurarAtalhosRelatorio() {
+        [
+            "filtro-empresa",
+            "filtro-tipo",
+            "input-mes",
+            "input-nf-inicio",
+            "input-nf-fim",
+            "btn-gerar-relatorio"
+        ].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el || el.dataset.enterBound === "1") return;
+            el.dataset.enterBound = "1";
+            el.addEventListener("keydown", _atalhoEnterRelatorio);
+        });
     }
 
     function gerarRelatorio() {
@@ -1021,6 +1612,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         a.click();
         URL.revokeObjectURL(url);
     }
+
+    mudarFiltro();
+    configurarAtalhosRelatorio();
 
     var pollingCorrecaoTimer = null;
     var pollingCorrecaoDesde = 0;

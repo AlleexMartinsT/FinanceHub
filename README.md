@@ -122,6 +122,12 @@ Examples:
 - `http://127.0.0.1:8877/financeiro/`
 - `http://127.0.0.1:8877/botana/`
 
+## Home Page Tools
+
+- The `Verificar NFs Faltantes` panel on the Hub home page now uses a responsive layout on smaller screens.
+- The Hub home page now uses a more guided server HUD, with a clearer hero section, module map, and more informative maintenance/diagnostic cards.
+- In that panel, `Enter` advances to the next visible field, and pressing `Enter` on `Verificar Faltantes` runs the check.
+
 ## Configuration File
 
 Settings file:
