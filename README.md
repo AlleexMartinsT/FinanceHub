@@ -128,6 +128,7 @@ Examples:
 - The `Verificar NFs Faltantes` panel on the Hub home page now uses a responsive layout on smaller screens.
 - The Hub home page now uses a more guided server HUD, with a clearer hero section, module map, and more informative maintenance/diagnostic cards.
 - In that panel, `Enter` advances to the next visible field, and pressing `Enter` on `Verificar Faltantes` runs the check.
+- The `Verificar NFs Faltantes` panel can now select missing NFs and send them straight to Botana `Recuperar e-mails`, so sheet checking and email recovery can happen from the same flow.
 
 ## Configuration File
 

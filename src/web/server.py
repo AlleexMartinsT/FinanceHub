@@ -1198,6 +1198,19 @@ def _base_styles() -> str:
     #nf-faltantes-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin-top:16px}
     #nf-faltantes-controls > *{min-width:0}
     #nf-faltantes-controls select,#nf-faltantes-controls input,#nf-faltantes-controls button{width:100%;box-sizing:border-box}
+    #nf-faltantes-actions{display:none;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:14px;padding:14px 16px;border:1px solid #d9d0c5;border-radius:16px;background:#fff8ee}
+    #nf-faltantes-actions button{width:auto;min-width:260px}
+    .nf-action-meta{display:flex;flex-direction:column;gap:4px}
+    .nf-action-toggle{display:flex;align-items:center;gap:10px;font-weight:700;color:#2f3a45}
+    .nf-action-toggle input{width:18px;height:18px;flex:0 0 auto}
+    .nf-action-hint{font-size:13px;color:#5d6b7b}
+    #nf-faltantes-feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid #d8d0c4;background:#fffefa;color:#253243}
+    #nf-faltantes-feedback.info{display:block;background:#eef6ff;border-color:#bfd8f8;color:#204166}
+    #nf-faltantes-feedback.success{display:block;background:#edf9ef;border-color:#bcdcbc;color:#255133}
+    #nf-faltantes-feedback.error{display:block;background:#fff0f0;border-color:#efb8b8;color:#7a1f1f}
+    .nf-col-select{width:72px;text-align:center}
+    .nf-select-cell{text-align:center}
+    .nf-select-cell input{width:18px;height:18px}
     #div-nfs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
     #div-nfs span{text-align:center;font-size:13px;font-weight:700;color:#475569}
     select,input{
@@ -1288,6 +1301,8 @@ def _base_styles() -> str:
       .hub-label-top{top:48px;font-size:22px}
       .hub-label-bottom{bottom:38px;font-size:22px}
       #nf-faltantes-controls{grid-template-columns:1fr}
+      #nf-faltantes-actions{grid-template-columns:1fr}
+      #nf-faltantes-actions button{width:100%}
       #div-nfs{grid-template-columns:1fr}
     }
     """
@@ -1533,10 +1548,22 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         <button id="btn-baixar-csv" class="btn-neutral" onclick="baixarCSV()" style="display: none;">Baixar CSV</button>
       </div>
       <div id="resumo-container"></div>
+      <div id="nf-faltantes-actions">
+        <div class="nf-action-meta">
+          <label class="nf-action-toggle" for="nf-select-all">
+            <input id="nf-select-all" type="checkbox" onchange="toggleSelecionarTodasFaltantes(this)">
+            <span>Selecionar todas as NFs faltantes</span>
+          </label>
+          <div id="nf-selection-summary" class="nf-action-hint">Nenhuma NF faltante selecionada.</div>
+        </div>
+        <button id="btn-recuperar-faltantes" class="btn-primary" onclick="recuperarFaltantesSelecionadas()" disabled>Recuperar selecionadas no Botana</button>
+      </div>
+      <div id="nf-faltantes-feedback"></div>
       <div id="tabela-container">
         <table class="data-table">
             <thead>
                 <tr>
+                    <th class="nf-col-select">Selecionar</th>
                     <th>#</th>
                     <th>NF Faltante</th>
                 </tr>
@@ -1549,6 +1576,110 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
   </div>
   <script>
     let dadosRelatorioAtual = {};
+
+    function _nfCheckboxes() {
+        return Array.from(document.querySelectorAll(".nf-faltante-check"));
+    }
+
+    function _nfsFaltantesSelecionadas() {
+        return _nfCheckboxes()
+            .filter(function(el) { return !!el.checked; })
+            .map(function(el) { return String(el.value || "").trim(); })
+            .filter(Boolean);
+    }
+
+    function _setNfRecoveryFeedback(kind, msg) {
+        var el = document.getElementById("nf-faltantes-feedback");
+        if (!el) return;
+        var text = String(msg || "").trim();
+        if (!text) {
+            el.className = "";
+            el.style.display = "none";
+            el.textContent = "";
+            return;
+        }
+        el.className = kind ? String(kind) : "info";
+        el.style.display = "block";
+        el.textContent = text;
+    }
+
+    function atualizarAcoesFaltantes() {
+        var actionBox = document.getElementById("nf-faltantes-actions");
+        var summaryEl = document.getElementById("nf-selection-summary");
+        var btn = document.getElementById("btn-recuperar-faltantes");
+        var toggle = document.getElementById("nf-select-all");
+        var checks = _nfCheckboxes();
+        var selected = _nfsFaltantesSelecionadas();
+        var total = checks.length;
+        if (actionBox) {
+            actionBox.style.display = total > 0 ? "grid" : "none";
+        }
+        if (summaryEl) {
+            summaryEl.textContent = total > 0
+                ? (selected.length + " de " + total + " NF(s) selecionadas para recuperar no Botana.")
+                : "Nenhuma NF faltante selecionada.";
+        }
+        if (btn) {
+            btn.disabled = selected.length === 0;
+            btn.textContent = selected.length > 0
+                ? ("Recuperar " + selected.length + " selecionada(s) no Botana")
+                : "Recuperar selecionadas no Botana";
+        }
+        if (toggle) {
+            toggle.checked = total > 0 && selected.length === total;
+            toggle.indeterminate = selected.length > 0 && selected.length < total;
+        }
+    }
+
+    function toggleSelecionarTodasFaltantes(source) {
+        var mark = !!(source && source.checked);
+        _nfCheckboxes().forEach(function(el) { el.checked = mark; });
+        atualizarAcoesFaltantes();
+    }
+
+    async function recuperarFaltantesSelecionadas() {
+        var selecionadas = _nfsFaltantesSelecionadas();
+        var btn = document.getElementById("btn-recuperar-faltantes");
+        if (!selecionadas.length) {
+            _setNfRecoveryFeedback("info", "Selecione ao menos uma NF faltante para enviar ao Botana.");
+            atualizarAcoesFaltantes();
+            return;
+        }
+        var quantidade = selecionadas.length;
+        var confirmMsg = quantidade === 1
+            ? ("Enviar a NF " + selecionadas[0] + " para Recuperar e-mails no Botana?")
+            : ("Enviar " + quantidade + " NFs faltantes para Recuperar e-mails no Botana?");
+        if (!window.confirm(confirmMsg)) {
+            return;
+        }
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Enviando...";
+        }
+        _setNfRecoveryFeedback("info", "Enviando as NFs selecionadas para o Botana iniciar a recuperação.");
+        try {
+            var resposta = await fetch("/botana/api/recover-emails", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    mode: "list",
+                    nf_list: selecionadas,
+                    max_messages: 1000
+                })
+            });
+            var dados = await resposta.json().catch(function() { return {}; });
+            if (resposta.ok && dados.ok) {
+                var msg = String(dados.friendly || "Recuperacao iniciada no Botana.").trim();
+                _setNfRecoveryFeedback("success", msg + " NFs enviadas: " + selecionadas.join(", ") + ".");
+            } else {
+                _setNfRecoveryFeedback("error", String(dados.message || "Nao foi possivel iniciar a recuperacao no Botana."));
+            }
+        } catch (err) {
+            _setNfRecoveryFeedback("error", "Erro de rede ao chamar o Botana: " + err);
+        } finally {
+            atualizarAcoesFaltantes();
+        }
+    }
 
     function mudarFiltro() {
         const tipo = document.getElementById("filtro-tipo").value;
@@ -1655,6 +1786,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         var tbody = document.getElementById("tabela-corpo");
         var d = dadosRelatorioAtual;
         tbody.innerHTML = "";
+        _setNfRecoveryFeedback("", "");
 
         var totalFaltante = d.totalFaltante || 0;
         var totalEncontrado = d.totalEncontrado || 0;
@@ -1673,7 +1805,11 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             var faltantes = d.faltantes || [];
             for (var idx = 0; idx < faltantes.length; idx++) {
                 var tr = document.createElement("tr");
-                tr.innerHTML = '<td style="padding: 8px; border: 1px solid #ddd;">' + (idx + 1) + '</td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #c0392b;">' + faltantes[idx].NF + '</td>';
+                var nf = String(faltantes[idx].NF || "").trim();
+                tr.innerHTML =
+                    '<td class="nf-select-cell" style="padding: 8px; border: 1px solid #ddd;"><input class="nf-faltante-check" type="checkbox" value="' + nf + '" onchange="atualizarAcoesFaltantes()"></td>' +
+                    '<td style="padding: 8px; border: 1px solid #ddd;">' + (idx + 1) + '</td>' +
+                    '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #c0392b;">' + nf + '</td>';
                 tbody.appendChild(tr);
             }
             container.style.display = "block";
@@ -1682,6 +1818,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             container.style.display = "none";
             document.getElementById("btn-baixar-csv").style.display = "none";
         }
+        atualizarAcoesFaltantes();
     }
 
     function baixarCSV() {
