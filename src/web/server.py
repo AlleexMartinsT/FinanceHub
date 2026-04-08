@@ -874,10 +874,10 @@ def _base_styles() -> str:
       color:var(--ink);
     }
     *{font-family:'Lexend',sans-serif}
-    .container{max-width:1240px;margin:0 auto}
+    .container{max-width:1340px;margin:0 auto}
     .hero-panel{
       display:grid;
-      grid-template-columns:minmax(0,1.35fr) minmax(280px,.95fr);
+      grid-template-columns:minmax(0,1.42fr) minmax(340px,1fr);
       gap:22px;
       background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(248,250,255,.96));
       border:1px solid rgba(23,111,229,.12);
@@ -912,14 +912,14 @@ def _base_styles() -> str:
     .metric-grid{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
+      gap:12px;
       margin-top:22px;
     }
     .metric-card{
       background:var(--card);
       border:1px solid var(--line-soft);
       border-radius:20px;
-      padding:18px;
+      padding:18px 16px;
       min-height:110px;
       box-shadow:0 10px 28px rgba(22,32,43,.05);
     }
@@ -932,7 +932,7 @@ def _base_styles() -> str:
     .metric-card span{
       display:block;
       margin-top:10px;
-      font-size:14px;
+      font-size:13px;
       color:var(--muted);
       line-height:1.45;
     }
@@ -1131,7 +1131,7 @@ def _base_styles() -> str:
       padding:14px 16px;
     }
     .guide-item strong{display:block;font-size:14px}
-    .guide-item span{display:block;margin-top:6px;color:var(--muted);font-size:13px;line-height:1.5}
+    .guide-item span{display:block;margin-top:6px;color:var(--muted);font-size:13px;line-height:1.45}
     .actions-panel{
       margin-top:24px;
       display:grid;
@@ -1204,10 +1204,25 @@ def _base_styles() -> str:
     .nf-action-toggle{display:flex;align-items:center;gap:10px;font-weight:700;color:#2f3a45}
     .nf-action-toggle input{width:18px;height:18px;flex:0 0 auto}
     .nf-action-hint{font-size:13px;color:#5d6b7b}
-    #nf-faltantes-feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid #d8d0c4;background:#fffefa;color:#253243}
-    #nf-faltantes-feedback.info{display:block;background:#eef6ff;border-color:#bfd8f8;color:#204166}
-    #nf-faltantes-feedback.success{display:block;background:#edf9ef;border-color:#bcdcbc;color:#255133}
+    #nf-faltantes-feedback{display:none;margin-top:12px;padding:14px 16px;border-radius:16px;border:1px solid #d8d0c4;background:#fffefa;color:#253243}
+    #nf-faltantes-feedback.active{display:block}
     #nf-faltantes-feedback.error{display:block;background:#fff0f0;border-color:#efb8b8;color:#7a1f1f}
+    #nf-faltantes-feedback.success{display:block;background:#edf9ef;border-color:#bcdcbc;color:#255133}
+    .nf-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .nf-progress-title{font-size:14px;font-weight:800;color:#243140}
+    .nf-progress-count{font-size:12px;font-weight:700;color:#607084;white-space:nowrap}
+    .nf-progress-track{margin-top:10px;height:12px;border-radius:999px;background:#e9edf2;overflow:hidden;position:relative}
+    .nf-progress-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#2f9e6f,#55c6a4);transition:width .35s ease}
+    .nf-progress-fill.indeterminate{width:36%;background:linear-gradient(90deg,#4c8af0,#7bc2ff);animation:nf-progress-slide 1.15s ease-in-out infinite}
+    .nf-progress-fill.error{background:linear-gradient(90deg,#d25d5d,#f08a8a)}
+    .nf-progress-fill.success{background:linear-gradient(90deg,#2f9e6f,#74d39a)}
+    .nf-progress-note{margin-top:8px;font-size:12px;line-height:1.45;color:#627080}
+    #nf-faltantes-feedback.error .nf-progress-title,#nf-faltantes-feedback.error .nf-progress-count,#nf-faltantes-feedback.error .nf-progress-note{color:#7a1f1f}
+    #nf-faltantes-feedback.success .nf-progress-title,#nf-faltantes-feedback.success .nf-progress-count,#nf-faltantes-feedback.success .nf-progress-note{color:#255133}
+    @keyframes nf-progress-slide{
+      0%{transform:translateX(-120%)}
+      100%{transform:translateX(320%)}
+    }
     .nf-col-select{width:72px;text-align:center}
     .nf-select-cell{text-align:center}
     .nf-select-cell input{width:18px;height:18px}
@@ -1558,7 +1573,16 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         </div>
         <button id="btn-recuperar-faltantes" class="btn-primary" onclick="recuperarFaltantesSelecionadas()" disabled>Recuperar selecionadas no Botana</button>
       </div>
-      <div id="nf-faltantes-feedback"></div>
+      <div id="nf-faltantes-feedback">
+        <div class="nf-progress-head">
+          <span id="nf-feedback-title" class="nf-progress-title">Recuperando no Botana</span>
+          <span id="nf-feedback-count" class="nf-progress-count">0/0</span>
+        </div>
+        <div class="nf-progress-track">
+          <div id="nf-feedback-bar" class="nf-progress-fill"></div>
+        </div>
+        <div id="nf-feedback-note" class="nf-progress-note"></div>
+      </div>
       <div id="tabela-container">
         <table class="data-table">
             <thead>
@@ -1576,6 +1600,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
   </div>
   <script>
     let dadosRelatorioAtual = {};
+    let _nfRecoveryPollTimer = null;
+    let _nfRecoveryPollAttempts = 0;
+    let _nfRecoverySeenAction = false;
 
     function _nfCheckboxes() {
         return Array.from(document.querySelectorAll(".nf-faltante-check"));
@@ -1588,19 +1615,131 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             .filter(Boolean);
     }
 
-    function _setNfRecoveryFeedback(kind, msg) {
-        var el = document.getElementById("nf-faltantes-feedback");
-        if (!el) return;
-        var text = String(msg || "").trim();
-        if (!text) {
-            el.className = "";
-            el.style.display = "none";
-            el.textContent = "";
+    function _stopNfRecoveryPolling() {
+        if (_nfRecoveryPollTimer) {
+            clearInterval(_nfRecoveryPollTimer);
+            _nfRecoveryPollTimer = null;
+        }
+        _nfRecoveryPollAttempts = 0;
+        _nfRecoverySeenAction = false;
+    }
+
+    function _setNfRecoveryFeedback(state) {
+        var wrap = document.getElementById("nf-faltantes-feedback");
+        var title = document.getElementById("nf-feedback-title");
+        var count = document.getElementById("nf-feedback-count");
+        var bar = document.getElementById("nf-feedback-bar");
+        var note = document.getElementById("nf-feedback-note");
+        if (!wrap || !title || !count || !bar || !note) return;
+        if (!state || state.hidden) {
+            wrap.className = "";
+            wrap.style.display = "none";
+            title.textContent = "";
+            count.textContent = "";
+            note.textContent = "";
+            bar.className = "nf-progress-fill";
+            bar.style.width = "0%";
             return;
         }
-        el.className = kind ? String(kind) : "info";
-        el.style.display = "block";
-        el.textContent = text;
+        var kind = String(state.kind || "active");
+        var current = Math.max(0, Number(state.current || 0));
+        var total = Math.max(0, Number(state.total || 0));
+        var percent = total > 0 ? Math.max(0, Math.min(100, Math.round((current / total) * 100))) : 0;
+        wrap.className = kind;
+        wrap.classList.add("active");
+        wrap.style.display = "block";
+        title.textContent = String(state.title || "Recuperando no Botana");
+        count.textContent = total > 0 ? (current + "/" + total) : "";
+        note.textContent = String(state.note || "").trim();
+        bar.className = "nf-progress-fill";
+        if (kind === "error") {
+            bar.classList.add("error");
+            bar.style.width = percent > 0 ? (percent + "%") : "100%";
+        } else if (kind === "success") {
+            bar.classList.add("success");
+            bar.style.width = "100%";
+        } else if (kind === "loading" || total <= 0) {
+            bar.classList.add("indeterminate");
+            bar.style.width = "36%";
+        } else {
+            bar.style.width = percent + "%";
+        }
+    }
+
+    async function _pollNfRecoveryState() {
+        try {
+            _nfRecoveryPollAttempts += 1;
+            var res = await fetch("/botana/api/state");
+            var data = await res.json();
+            var action = (data && data.manual_action) || {};
+            if (String(action.kind || "") !== "recover_missing") {
+                if (!_nfRecoverySeenAction && _nfRecoveryPollAttempts <= 6) {
+                    _setNfRecoveryFeedback({
+                        kind: "loading",
+                        title: "Enviando ao Botana",
+                        note: "Aguardando o Botana iniciar a recuperação."
+                    });
+                    return;
+                }
+                _stopNfRecoveryPolling();
+                _setNfRecoveryFeedback({
+                    kind: "success",
+                    title: "Recuperação enviada ao Botana",
+                    note: "A solicitação foi entregue; acompanhe o andamento completo no painel do Botana."
+                });
+                return;
+            }
+            _nfRecoverySeenAction = true;
+            var active = !!action.active;
+            var phase = String(action.phase || "");
+            var current = Math.max(0, Number(action.progress_current || 0));
+            var total = Math.max(0, Number(action.progress_total || 0));
+            if (active) {
+                _setNfRecoveryFeedback({
+                    kind: total > 0 ? "active" : "loading",
+                    current: current,
+                    total: total,
+                    title: phase === "processing" ? "Lendo e-mails no Botana" : "Buscando e-mails no Botana",
+                    note: total > 0 ? "Recuperação em andamento para as NFs selecionadas." : "Preparando a recuperação no Botana."
+                });
+                return;
+            }
+            _stopNfRecoveryPolling();
+            if (String(action.status || "") === "error") {
+                _setNfRecoveryFeedback({
+                    kind: "error",
+                    current: current,
+                    total: total,
+                    title: "Falha na recuperação",
+                    note: String(action.message || action.detail || "Não foi possível concluir a recuperação no Botana.")
+                });
+                return;
+            }
+            _setNfRecoveryFeedback({
+                kind: "success",
+                current: current || total,
+                total: total,
+                title: "Recuperação concluída",
+                note: "O Botana terminou a busca das NFs selecionadas."
+            });
+        } catch (err) {
+            _stopNfRecoveryPolling();
+            _setNfRecoveryFeedback({
+                kind: "error",
+                title: "Erro ao acompanhar o Botana",
+                note: "Não foi possível consultar o progresso da recuperação."
+            });
+        }
+    }
+
+    function _startNfRecoveryPolling() {
+        _stopNfRecoveryPolling();
+        _nfRecoveryPollAttempts = 0;
+        _nfRecoverySeenAction = false;
+        _nfRecoveryPollTimer = setInterval(function() {
+            _pollNfRecoveryState();
+        }, 1500);
+        _pollNfRecoveryState();
     }
 
     function atualizarAcoesFaltantes() {
@@ -1641,7 +1780,11 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         var selecionadas = _nfsFaltantesSelecionadas();
         var btn = document.getElementById("btn-recuperar-faltantes");
         if (!selecionadas.length) {
-            _setNfRecoveryFeedback("info", "Selecione ao menos uma NF faltante para enviar ao Botana.");
+            _setNfRecoveryFeedback({
+                kind: "error",
+                title: "Nenhuma NF selecionada",
+                note: "Selecione ao menos uma NF faltante para enviar ao Botana."
+            });
             atualizarAcoesFaltantes();
             return;
         }
@@ -1656,7 +1799,11 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             btn.disabled = true;
             btn.textContent = "Enviando...";
         }
-        _setNfRecoveryFeedback("info", "Enviando as NFs selecionadas para o Botana iniciar a recuperação.");
+        _setNfRecoveryFeedback({
+            kind: "loading",
+            title: "Enviando ao Botana",
+            note: "Preparando a recuperação das NFs selecionadas."
+        });
         try {
             var resposta = await fetch("/botana/api/recover-emails", {
                 method: "POST",
@@ -1669,13 +1816,20 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             });
             var dados = await resposta.json().catch(function() { return {}; });
             if (resposta.ok && dados.ok) {
-                var msg = String(dados.friendly || "Recuperacao iniciada no Botana.").trim();
-                _setNfRecoveryFeedback("success", msg + " NFs enviadas: " + selecionadas.join(", ") + ".");
+                _startNfRecoveryPolling();
             } else {
-                _setNfRecoveryFeedback("error", String(dados.message || "Nao foi possivel iniciar a recuperacao no Botana."));
+                _setNfRecoveryFeedback({
+                    kind: "error",
+                    title: "Falha ao iniciar",
+                    note: String(dados.message || "Nao foi possivel iniciar a recuperacao no Botana.")
+                });
             }
         } catch (err) {
-            _setNfRecoveryFeedback("error", "Erro de rede ao chamar o Botana: " + err);
+            _setNfRecoveryFeedback({
+                kind: "error",
+                title: "Erro de rede",
+                note: "Erro de rede ao chamar o Botana: " + err
+            });
         } finally {
             atualizarAcoesFaltantes();
         }
@@ -1786,7 +1940,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         var tbody = document.getElementById("tabela-corpo");
         var d = dadosRelatorioAtual;
         tbody.innerHTML = "";
-        _setNfRecoveryFeedback("", "");
+        _stopNfRecoveryPolling();
+        _setNfRecoveryFeedback({ hidden: true });
 
         var totalFaltante = d.totalFaltante || 0;
         var totalEncontrado = d.totalEncontrado || 0;
