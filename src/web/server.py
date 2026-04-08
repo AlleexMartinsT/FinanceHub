@@ -1187,12 +1187,40 @@ def _base_styles() -> str:
       font-size:14px;
       line-height:1.6;
     }
+    .actions-panel .tool-head{
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+    }
+    .actions-panel .tool-head > div{
+      max-width:660px;
+      text-align:center;
+    }
+    .actions-panel .tool-helper{
+      text-align:center;
+    }
     .maintenance-controls{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:12px;
       align-items:end;
       margin-top:16px;
+    }
+    .maintenance-controls,.actions-panel #nf-faltantes-controls{
+      justify-items:center;
+    }
+    .maintenance-controls > div,.actions-panel #nf-faltantes-controls > div{
+      width:100%;
+      max-width:320px;
+      text-align:center;
+    }
+    .maintenance-controls label,.actions-panel #nf-faltantes-controls label{
+      display:block;
+      text-align:center;
+    }
+    #btn-corrigir,#btn-gerar-relatorio,#btn-baixar-csv{
+      justify-self:center;
+      max-width:240px;
     }
     #nf-faltantes-card{padding:24px}
     #nf-faltantes-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin-top:16px}
@@ -1219,6 +1247,14 @@ def _base_styles() -> str:
     .nf-progress-note{margin-top:8px;font-size:12px;line-height:1.45;color:#627080}
     #nf-faltantes-feedback.error .nf-progress-title,#nf-faltantes-feedback.error .nf-progress-count,#nf-faltantes-feedback.error .nf-progress-note{color:#7a1f1f}
     #nf-faltantes-feedback.success .nf-progress-title,#nf-faltantes-feedback.success .nf-progress-count,#nf-faltantes-feedback.success .nf-progress-note{color:#255133}
+    .auth-pop-overlay{position:fixed;inset:0;background:rgba(15,23,42,.48);display:none;align-items:center;justify-content:center;padding:18px;z-index:9999}
+    .auth-pop-overlay.show{display:flex}
+    .auth-pop-card{width:min(100%,460px);background:#fffdf9;border:1px solid #ddd4c8;border-radius:24px;box-shadow:0 24px 80px rgba(15,23,42,.18);padding:24px;text-align:center}
+    .auth-pop-kicker{margin:0;color:var(--hub);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .auth-pop-card h4{margin:10px 0 0;font-size:28px;line-height:1.08}
+    .auth-pop-card p{margin:12px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
+    .auth-pop-actions{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:18px}
+    .auth-pop-actions button{width:auto;min-width:180px}
     @keyframes nf-progress-slide{
       0%{transform:translateX(-120%)}
       100%{transform:translateX(320%)}
@@ -1226,7 +1262,23 @@ def _base_styles() -> str:
     .nf-col-select{width:72px;text-align:center}
     .nf-select-cell{text-align:center}
     .nf-select-cell input{width:18px;height:18px}
-    #div-nfs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
+    #div-mes{
+      grid-column:1/-1;
+      width:min(100%,260px);
+      justify-self:center;
+      text-align:center;
+    }
+    #div-mes input{text-align:center}
+    #div-nfs{
+      display:grid;
+      grid-column:1/-1;
+      grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);
+      align-items:center;
+      gap:8px;
+      width:min(100%,560px);
+      justify-self:center;
+    }
+    #div-nfs input{text-align:center}
     #div-nfs span{text-align:center;font-size:13px;font-weight:700;color:#475569}
     select,input{
       width:100%;
@@ -1319,6 +1371,9 @@ def _base_styles() -> str:
       #nf-faltantes-actions{grid-template-columns:1fr}
       #nf-faltantes-actions button{width:100%}
       #div-nfs{grid-template-columns:1fr}
+      #btn-corrigir,#btn-gerar-relatorio,#btn-baixar-csv{max-width:none;width:100%}
+      .auth-pop-actions{flex-direction:column}
+      .auth-pop-actions button{width:100%}
     }
     """
 
@@ -1571,7 +1626,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
           </label>
           <div id="nf-selection-summary" class="nf-action-hint">Nenhuma NF faltante selecionada.</div>
         </div>
-        <button id="btn-recuperar-faltantes" class="btn-primary" onclick="recuperarFaltantesSelecionadas()" disabled>Recuperar selecionadas no Botana</button>
+        <button id="btn-recuperar-faltantes" class="btn-primary" onclick="recuperarFaltantesSelecionadas()" disabled>Recuperar NFs</button>
       </div>
       <div id="nf-faltantes-feedback">
         <div class="nf-progress-head">
@@ -1597,12 +1652,90 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       </div>
       </section>
     </section>
+    <div id="botana-auth-pop" class="auth-pop-overlay" aria-hidden="true">
+      <div class="auth-pop-card" role="dialog" aria-modal="true" aria-labelledby="botana-auth-title">
+        <p class="auth-pop-kicker">Botana</p>
+        <h4 id="botana-auth-title">Login necessario</h4>
+        <p id="botana-auth-msg">Voce precisa entrar no Botana antes de iniciar essa recuperacao.</p>
+        <div class="auth-pop-actions">
+          <button type="button" class="btn-primary" onclick="abrirLoginBotana()">Abrir login do Botana</button>
+          <button type="button" class="btn-neutral" onclick="fecharLoginBotana()">Agora nao</button>
+        </div>
+      </div>
+    </div>
   </div>
   <script>
     let dadosRelatorioAtual = {};
     let _nfRecoveryPollTimer = null;
     let _nfRecoveryPollAttempts = 0;
     let _nfRecoverySeenAction = false;
+
+    function _normalizeUiText(value) {
+        var text = String(value || "");
+        if (!text) return "";
+        [
+            ["NÃ£o", "Não"],
+            ["nÃ£o", "não"],
+            ["AutenticaÃ§Ã£o", "Autenticação"],
+            ["autenticaÃ§Ã£o", "autenticação"],
+            ["RecuperaÃ§Ã£o", "Recuperação"],
+            ["recuperaÃ§Ã£o", "recuperação"],
+            ["solicitaÃ§Ã£o", "solicitação"],
+            ["possÃ­vel", "possível"],
+            ["concluÃ­da", "concluída"],
+            ["navegaÃ§Ã£o", "navegação"],
+            ["CorreÃ§Ã£o", "Correção"],
+            ["correÃ§Ã£o", "correção"],
+            ["MÃªs", "Mês"],
+            ["mÃªs", "mês"],
+            ["especÃ­fica", "específica"],
+            ["contÃ­nuo", "contínuo"],
+            ["vocÃª", "você"],
+            ["estÃ¡", "está"],
+            ["atÃ©", "até"],
+            ["Ãª", "ê"],
+            ["Ã¡", "á"],
+            ["Ã£", "ã"],
+            ["Ã§", "ç"],
+            ["Ã³", "ó"],
+            ["Ãº", "ú"],
+            ["Ã­", "í"],
+            ["Ã©", "é"]
+        ].forEach(function(pair) {
+            text = text.split(pair[0]).join(pair[1]);
+        });
+        return text;
+    }
+
+    function _isBotanaAuthError(statusCode, message) {
+        var msg = _normalizeUiText(message).toLowerCase();
+        return Number(statusCode) === 401
+            || Number(statusCode) === 403
+            || msg.indexOf("não autenticado") !== -1
+            || msg.indexOf("nao autenticado") !== -1
+            || msg.indexOf("sem permissão") !== -1
+            || msg.indexOf("sem permissao") !== -1;
+    }
+
+    function abrirLoginBotana() {
+        window.open("/botana/login", "botana-login", "width=720,height=840,resizable=yes,scrollbars=yes");
+    }
+
+    function fecharLoginBotana() {
+        var el = document.getElementById("botana-auth-pop");
+        if (!el) return;
+        el.classList.remove("show");
+        el.setAttribute("aria-hidden", "true");
+    }
+
+    function mostrarLoginBotana(message) {
+        var el = document.getElementById("botana-auth-pop");
+        var msgEl = document.getElementById("botana-auth-msg");
+        if (!el || !msgEl) return;
+        msgEl.textContent = _normalizeUiText(message || "Você precisa entrar no Botana antes de iniciar essa recuperação.");
+        el.classList.add("show");
+        el.setAttribute("aria-hidden", "false");
+    }
 
     function _nfCheckboxes() {
         return Array.from(document.querySelectorAll(".nf-faltante-check"));
@@ -1648,9 +1781,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         wrap.className = kind;
         wrap.classList.add("active");
         wrap.style.display = "block";
-        title.textContent = String(state.title || "Recuperando no Botana");
+        title.textContent = _normalizeUiText(state.title || "Recuperando no Botana");
         count.textContent = total > 0 ? (current + "/" + total) : "";
-        note.textContent = String(state.note || "").trim();
+        note.textContent = _normalizeUiText(String(state.note || "").trim());
         bar.className = "nf-progress-fill";
         if (kind === "error") {
             bar.classList.add("error");
@@ -1711,7 +1844,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                     current: current,
                     total: total,
                     title: "Falha na recuperação",
-                    note: String(action.message || action.detail || "Não foi possível concluir a recuperação no Botana.")
+                    note: _normalizeUiText(String(action.message || action.detail || "Não foi possível concluir a recuperação no Botana."))
                 });
                 return;
             }
@@ -1760,9 +1893,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         }
         if (btn) {
             btn.disabled = selected.length === 0;
-            btn.textContent = selected.length > 0
-                ? ("Recuperar " + selected.length + " selecionada(s) no Botana")
-                : "Recuperar selecionadas no Botana";
+            btn.textContent = "Recuperar NFs";
         }
         if (toggle) {
             toggle.checked = total > 0 && selected.length === total;
@@ -1816,19 +1947,24 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             });
             var dados = await resposta.json().catch(function() { return {}; });
             if (resposta.ok && dados.ok) {
+                fecharLoginBotana();
                 _startNfRecoveryPolling();
             } else {
+                var failMsg = _normalizeUiText(String(dados.message || "Nao foi possivel iniciar a recuperacao no Botana."));
+                if (_isBotanaAuthError(resposta.status, failMsg)) {
+                    mostrarLoginBotana(failMsg);
+                }
                 _setNfRecoveryFeedback({
                     kind: "error",
                     title: "Falha ao iniciar",
-                    note: String(dados.message || "Nao foi possivel iniciar a recuperacao no Botana.")
+                    note: failMsg
                 });
             }
         } catch (err) {
             _setNfRecoveryFeedback({
                 kind: "error",
                 title: "Erro de rede",
-                note: "Erro de rede ao chamar o Botana: " + err
+                note: _normalizeUiText("Erro de rede ao chamar o Botana: " + err)
             });
         } finally {
             atualizarAcoesFaltantes();

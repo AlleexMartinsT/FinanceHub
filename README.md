@@ -129,8 +129,11 @@ Examples:
 - The Hub home page now uses a more guided server HUD, with a clearer hero section, module map, and more informative maintenance/diagnostic cards.
 - In that panel, `Enter` advances to the next visible field, and pressing `Enter` on `Verificar Faltantes` runs the check.
 - The `Verificar NFs Faltantes` panel can now select missing NFs and send them straight to Botana `Recuperar e-mails`, so sheet checking and email recovery can happen from the same flow.
+- In that same panel, the recovery action now uses the shorter button label `Recuperar NFs`.
 - After sending selected missing NFs to Botana recovery, the Hub now shows a compact loading/progress bar instead of a long status sentence.
+- If Botana answers with an authentication error during that recovery flow, the Hub now normalizes the message text and opens a login popup instead of only showing a plain warning.
 - The Hub desktop layout now uses a slightly wider content container and less compressed summary cards, so helper texts stay on one line more often without stretching the page edge to edge.
+- The `Manutenção Guiada` and `Diagnóstico de Planilha` cards now center their explanatory text, and the `Por Range de NF` inputs move to a dedicated row so the typed numbers stay easier to read.
 
 ## Configuration File
 
