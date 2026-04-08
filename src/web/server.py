@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -753,6 +753,9 @@ class HubHttpServer:
                 if path == "/hub/api/instances":
                     return _json_response(self, 200, {"items": runtime.list()})
 
+                if path == "/hub/api/devlog":
+                    return _json_response(self, 200, self.server.hub_ref.get_devlog_state())
+
                 if path == "/hub/api/update/check":
                     if self.command not in {"GET", "POST"}:
                         return _json_response(self, 405, {"ok": False, "error": "Metodo nao permitido"})
@@ -840,6 +843,44 @@ class HubHttpServer:
             "instance_updater_running": bool(
                 self._inst_updater_thread and self._inst_updater_thread.is_alive()
             ),
+        }
+
+    def _tail_debug_log(self, limit: int = 80) -> list[str]:
+        path = self._debug_log_path
+        if not path.exists():
+            return []
+        try:
+            with path.open("r", encoding="utf-8", errors="replace") as fh:
+                lines = fh.readlines()
+        except Exception:
+            return []
+        items = [str(line or "").rstrip("\r\n") for line in lines if str(line or "").strip()]
+        return items[-max(1, int(limit or 80)) :]
+
+    def get_devlog_state(self) -> dict:
+        cfg = self.settings.load()
+        enabled_instances = [inst for inst in cfg.instances if bool(getattr(inst, "enabled", True))]
+        return {
+            "generated_at": datetime.now().isoformat(),
+            "console": self.get_console_state(),
+            "instances": {
+                "enabled": len(enabled_instances),
+                "botana": len(
+                    [
+                        inst
+                        for inst in enabled_instances
+                        if str(getattr(inst, "instance_type", "") or "").strip().lower() == "botana"
+                    ]
+                ),
+                "finance": len(
+                    [
+                        inst
+                        for inst in enabled_instances
+                        if str(getattr(inst, "instance_type", "") or "").strip().lower() != "botana"
+                    ]
+                ),
+            },
+            "recent_events": self._tail_debug_log(limit=80),
         }
 
 
@@ -1138,6 +1179,32 @@ def _base_styles() -> str:
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:20px;
     }
+    .view-tabs{
+      margin-top:24px;
+      display:flex;
+      justify-content:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .view-tab{
+      width:auto;
+      min-width:180px;
+      padding:12px 18px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff9f2;
+      color:#516172;
+      font-weight:800;
+      letter-spacing:.02em;
+    }
+    .view-tab.active{
+      background:var(--hub);
+      border-color:var(--hub);
+      color:#fff;
+      box-shadow:0 12px 28px rgba(23,111,229,.22);
+    }
+    .view-panel{display:none}
+    .view-panel.active{display:block}
     .tool-card{
       background:var(--card);
       border:1px solid var(--line);
@@ -1218,13 +1285,24 @@ def _base_styles() -> str:
       display:block;
       text-align:center;
     }
-    #btn-corrigir,#btn-gerar-relatorio,#btn-baixar-csv{
+    #btn-corrigir,#btn-gerar-relatorio{
       justify-self:center;
       max-width:240px;
     }
     #btn-gerar-relatorio{
       grid-column:1/-1;
       width:min(100%,260px);
+    }
+    .csv-icon-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:42px !important;
+      min-width:42px;
+      height:42px;
+      padding:0;
+      font-size:18px;
+      line-height:1;
     }
     #nf-faltantes-card{padding:24px}
     #nf-faltantes-controls{
@@ -1266,6 +1344,11 @@ def _base_styles() -> str:
     .auth-pop-card p{margin:12px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
     .auth-pop-actions{display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:18px}
     .auth-pop-actions button{width:auto;min-width:180px}
+    .warn-pop-card{width:min(100%,560px);background:#fffdf9;border:1px solid #ddd4c8;border-radius:24px;box-shadow:0 24px 80px rgba(15,23,42,.18);padding:24px;text-align:center}
+    .warn-pop-card h4{margin:10px 0 0;font-size:28px;line-height:1.08}
+    .warn-pop-card p{margin:12px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
+    .warn-pop-list{margin:18px 0 0;padding:0;list-style:none;display:grid;gap:10px;text-align:left;max-height:260px;overflow:auto}
+    .warn-pop-list li{background:#fff8ee;border:1px solid #ead8bf;border-radius:16px;padding:10px 12px;color:#354252;font-size:13px;line-height:1.55}
     @keyframes nf-progress-slide{
       0%{transform:translateX(-120%)}
       100%{transform:translateX(320%)}
@@ -1361,9 +1444,174 @@ def _base_styles() -> str:
     .data-table th,.data-table td{padding:10px 12px;border-bottom:1px solid var(--line-soft)}
     .data-table tbody tr:nth-child(even){background:#fffcf8}
     .data-table tbody tr:hover{background:#fff4ea}
+    .devlog-panel{
+      margin-top:24px;
+      display:grid;
+      gap:20px;
+    }
+    .devlog-grid{
+      display:grid;
+      grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+      gap:20px;
+    }
+    .devlog-card{
+      background:linear-gradient(180deg, #fffefb, #f7fbff);
+      border:1px solid var(--line);
+      border-radius:26px;
+      padding:24px;
+      box-shadow:var(--shadow);
+    }
+    .devlog-card h3{
+      margin:8px 0 0;
+      font-size:24px;
+      line-height:1.12;
+      text-align:center;
+    }
+    .devlog-card p{
+      margin:10px auto 0;
+      max-width:760px;
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .devlog-flow{
+      display:grid;
+      gap:12px;
+      margin-top:18px;
+    }
+    .devlog-flow-item{
+      background:#fff;
+      border:1px solid var(--line-soft);
+      border-radius:18px;
+      padding:14px 16px;
+    }
+    .devlog-flow-item strong{
+      display:block;
+      font-size:14px;
+    }
+    .devlog-flow-item span{
+      display:block;
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+    .devlog-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+      margin-top:18px;
+    }
+    .devlog-stat{
+      background:#fff;
+      border:1px solid var(--line-soft);
+      border-radius:18px;
+      padding:14px 12px;
+      text-align:center;
+    }
+    .devlog-stat strong{
+      display:block;
+      font-size:28px;
+      line-height:1;
+      color:var(--hub);
+    }
+    .devlog-stat span{
+      display:block;
+      margin-top:8px;
+      font-size:12px;
+      line-height:1.45;
+      color:var(--muted);
+    }
+    .devlog-columns{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:20px;
+      margin-top:18px;
+    }
+    .devlog-box{
+      background:#151b27;
+      color:#d5def4;
+      border-radius:20px;
+      border:1px solid rgba(156,218,248,.18);
+      padding:14px;
+      min-height:340px;
+      display:flex;
+      flex-direction:column;
+    }
+    .devlog-box-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    .devlog-box-head strong{
+      font-size:14px;
+      color:#fff;
+    }
+    .devlog-box-head span{
+      font-size:12px;
+      color:#9fb4d9;
+    }
+    .devlog-list{
+      display:grid;
+      gap:8px;
+      overflow:auto;
+      max-height:420px;
+      padding-right:4px;
+    }
+    .devlog-entry{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:10px 12px;
+    }
+    .devlog-entry-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      font-size:12px;
+      color:#8fbaff;
+    }
+    .devlog-entry strong{
+      display:block;
+      margin-top:6px;
+      font-size:13px;
+      color:#f4f8ff;
+    }
+    .devlog-entry p{
+      margin:6px 0 0;
+      max-width:none;
+      text-align:left;
+      color:#c4d4ec;
+      font-size:12px;
+      line-height:1.55;
+    }
+    .devlog-empty{
+      color:#8ea1bc;
+      font-size:12px;
+      line-height:1.6;
+      text-align:center;
+      padding:28px 12px;
+    }
+    .devlog-json{
+      margin-top:18px;
+      background:#0f1724;
+      color:#d8e7ff;
+      border-radius:18px;
+      border:1px solid rgba(156,218,248,.18);
+      padding:16px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:12px;
+      line-height:1.7;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
     @media (max-width:760px){
       body{padding:14px}
-      .hero-panel,.hub-layout,.actions-panel{grid-template-columns:1fr}
+      .hero-panel,.hub-layout,.actions-panel,.devlog-grid,.devlog-columns,.devlog-stats{grid-template-columns:1fr}
       .panel-head,.tool-head{flex-direction:column}
       .metric-grid,.maintenance-controls{grid-template-columns:1fr}
       .title{font-size:44px}
@@ -1382,9 +1630,10 @@ def _base_styles() -> str:
       #nf-faltantes-actions{grid-template-columns:1fr}
       #nf-faltantes-actions button{width:100%}
       #div-nfs{grid-template-columns:1fr}
-      #btn-corrigir,#btn-gerar-relatorio,#btn-baixar-csv{max-width:none;width:100%}
+      #btn-corrigir,#btn-gerar-relatorio{max-width:none;width:100%}
       .auth-pop-actions{flex-direction:column}
       .auth-pop-actions button{width:100%}
+      .view-tab{width:100%}
     }
     """
 
@@ -1560,6 +1809,12 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       </div>
     </section>
 
+    <div class="view-tabs" role="tablist" aria-label="Visões da HUD">
+      <button id="tab-operations" type="button" class="view-tab active" role="tab" aria-selected="true" aria-controls="view-operations" onclick="switchHomeTab('operations')">Operação</button>
+      <button id="tab-devlog" type="button" class="view-tab" role="tab" aria-selected="false" aria-controls="view-devlog" onclick="switchHomeTab('devlog')">Devlog</button>
+    </div>
+
+    <section id="view-operations" class="view-panel active" role="tabpanel" aria-labelledby="tab-operations">
     <section class="actions-panel">
       <section class="tool-card tool-card-primary">
         <div class="tool-head">
@@ -1621,12 +1876,12 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             <input type="month" id="input-mes">
         </div>
         <div id="div-nfs">
-            <input type="number" id="input-nf-inicio" placeholder="De NF Ex: 49000">
+            <input type="number" id="input-nf-inicio">
             <span>até</span>
-            <input type="number" id="input-nf-fim" placeholder="Até NF Ex: 50000">
+            <input type="number" id="input-nf-fim">
         </div>
         <button id="btn-gerar-relatorio" class="btn-secondary" onclick="gerarRelatorio()">Verificar</button>
-        <button id="btn-baixar-csv" class="btn-neutral" onclick="baixarCSV()" style="display: none;">Baixar CSV</button>
+        <button id="btn-baixar-csv" class="btn-neutral csv-icon-btn" onclick="baixarCSV()" style="display: none;" title="Baixar CSV" aria-label="Baixar CSV"><span aria-hidden="true">&#8681;</span></button>
       </div>
       <div id="resumo-container"></div>
       <div id="nf-faltantes-actions">
@@ -1663,6 +1918,75 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       </div>
       </section>
     </section>
+    </section>
+
+    <section id="view-devlog" class="view-panel" role="tabpanel" aria-labelledby="tab-devlog">
+      <section class="devlog-panel">
+        <section class="devlog-card">
+          <div class="tool-head">
+            <div>
+              <p class="tool-kicker">Devlog</p>
+              <h3>O que a página está fazendo por trás</h3>
+              <p>Essa aba mostra o rastro da HUD em tempo real: fluxo esperado, eventos do navegador e os últimos eventos que o Hub escreveu do lado do servidor.</p>
+            </div>
+            <span class="tool-badge">Diagnóstico</span>
+          </div>
+          <div class="devlog-flow">
+            <div class="devlog-flow-item">
+              <strong>Verificar NFs faltantes</strong>
+              <span>O Hub monta o filtro, chama o Botana em <code>/botana/api/relatorio-nfs</code>, renderiza a tabela e, se houver seleção, pode disparar a recuperação das NFs direto dali.</span>
+            </div>
+            <div class="devlog-flow-item">
+              <strong>Recuperar NFs</strong>
+              <span>O Hub envia a lista para <code>/botana/api/recover-emails</code> e passa a acompanhar <code>/botana/api/state</code> até a ação manual concluir, falhar ou não lançar nada novo.</span>
+            </div>
+            <div class="devlog-flow-item">
+              <strong>Correção guiada</strong>
+              <span>O botão inicia <code>/botana/api/clean-sheets</code> e a HUD continua lendo <code>/botana/api/clean-sheets/log</code> até o assistente parar de emitir eventos.</span>
+            </div>
+          </div>
+          <div class="devlog-stats">
+            <div class="devlog-stat">
+              <strong id="devlog-enabled-count">0</strong>
+              <span>Instâncias ativas</span>
+            </div>
+            <div class="devlog-stat">
+              <strong id="devlog-botana-count">0</strong>
+              <span>Rotas Botana</span>
+            </div>
+            <div class="devlog-stat">
+              <strong id="devlog-finance-count">0</strong>
+              <span>Rotas financeiras</span>
+            </div>
+            <div class="devlog-stat">
+              <strong id="devlog-next-check">-</strong>
+              <span>Próxima checagem do Hub</span>
+            </div>
+          </div>
+          <div class="devlog-json" id="devlog-snapshot">Aguardando eventos da página.</div>
+        </section>
+        <div class="devlog-columns">
+          <section class="devlog-box">
+            <div class="devlog-box-head">
+              <strong>Eventos da página</strong>
+              <span id="devlog-front-count">0 evento(s)</span>
+            </div>
+            <div id="devlog-front-list" class="devlog-list">
+              <div class="devlog-empty">Nenhum evento registrado ainda.</div>
+            </div>
+          </section>
+          <section class="devlog-box">
+            <div class="devlog-box-head">
+              <strong>Eventos recentes do Hub</strong>
+              <span id="devlog-server-stamp">Sem atualização</span>
+            </div>
+            <div id="devlog-server-list" class="devlog-list">
+              <div class="devlog-empty">Abra esta aba para carregar o tail do log do Hub.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
     <div id="botana-auth-pop" class="auth-pop-overlay" aria-hidden="true">
       <div class="auth-pop-card" role="dialog" aria-modal="true" aria-labelledby="botana-auth-title">
         <p class="auth-pop-kicker">Botana</p>
@@ -1674,6 +1998,17 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         </div>
       </div>
     </div>
+    <div id="recovery-warning-pop" class="auth-pop-overlay" aria-hidden="true">
+      <div class="warn-pop-card" role="dialog" aria-modal="true" aria-labelledby="recovery-warning-title">
+        <p class="auth-pop-kicker">Recuperação</p>
+        <h4 id="recovery-warning-title">NF divergente no e-mail</h4>
+        <p id="recovery-warning-msg">O assunto do e-mail não bateu com os anexos, então o Botana priorizou os anexos/XML para concluir a recuperação.</p>
+        <ul id="recovery-warning-list" class="warn-pop-list"></ul>
+        <div class="auth-pop-actions">
+          <button type="button" class="btn-primary" onclick="fecharRecoveryWarning()">Entendi</button>
+        </div>
+      </div>
+    </div>
   </div>
   <script>
     let dadosRelatorioAtual = {};
@@ -1682,6 +2017,18 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     let _nfRecoverySeenAction = false;
     let _botanaLoginWindow = null;
     let _botanaAuthPollTimer = null;
+    let _homeTab = "operations";
+    let _devlogEntries = [];
+    let _devlogServerPoll = null;
+    let _recoveryWarningToken = "";
+    let _devlogState = {
+        currentTab: "operations",
+        lastAction: "",
+        lastRoute: "",
+        lastResult: "",
+        lastResponse: null
+    };
+    let _devlogRecoveryMarker = "";
 
     function _normalizeUiText(value) {
         var text = String(value || "");
@@ -1720,6 +2067,169 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         return text;
     }
 
+    function _fmtDevlogTime(date) {
+        var d = date instanceof Date ? date : new Date();
+        return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function _safeDevlogText(value) {
+        return _normalizeUiText(String(value == null ? "" : value));
+    }
+
+    function _escapeHtml(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function _mergeDevlogState(patch) {
+        _devlogState = Object.assign({}, _devlogState, patch || {});
+        renderDevlogSnapshot();
+    }
+
+    function devlogPush(source, title, detail) {
+        _devlogEntries.unshift({
+            at: _fmtDevlogTime(new Date()),
+            source: _safeDevlogText(source || "HUD"),
+            title: _safeDevlogText(title || "Evento"),
+            detail: _safeDevlogText(detail || "")
+        });
+        if (_devlogEntries.length > 80) {
+            _devlogEntries = _devlogEntries.slice(0, 80);
+        }
+        renderDevlogEntries();
+    }
+
+    function renderDevlogEntries() {
+        var list = document.getElementById("devlog-front-list");
+        var count = document.getElementById("devlog-front-count");
+        if (!list || !count) return;
+        count.textContent = _devlogEntries.length + " evento(s)";
+        if (!_devlogEntries.length) {
+            list.innerHTML = '<div class="devlog-empty">Nenhum evento registrado ainda.</div>';
+            return;
+        }
+        list.innerHTML = _devlogEntries.map(function(item) {
+            return (
+                '<div class="devlog-entry">' +
+                    '<div class="devlog-entry-head">' +
+                        '<span>' + _escapeHtml(item.source) + '</span>' +
+                        '<span>' + _escapeHtml(item.at) + '</span>' +
+                    '</div>' +
+                    '<strong>' + _escapeHtml(item.title) + '</strong>' +
+                    '<p>' + _escapeHtml(item.detail || "Sem detalhe adicional.") + '</p>' +
+                '</div>'
+            );
+        }).join("");
+    }
+
+    function renderDevlogSnapshot() {
+        var el = document.getElementById("devlog-snapshot");
+        if (!el) return;
+        var selected = typeof _nfsFaltantesSelecionadas === "function" ? _nfsFaltantesSelecionadas().length : 0;
+        var snapshot = {
+            aba_ativa: _homeTab,
+            filtro_empresa: document.getElementById("filtro-empresa") ? document.getElementById("filtro-empresa").value : "",
+            filtro_tipo: document.getElementById("filtro-tipo") ? document.getElementById("filtro-tipo").value : "",
+            nfs_selecionadas: selected,
+            ultima_acao: _devlogState.lastAction || "",
+            ultima_rota: _devlogState.lastRoute || "",
+            ultimo_resultado: _devlogState.lastResult || "",
+            ultimo_payload: _devlogState.lastResponse || null
+        };
+        el.textContent = JSON.stringify(snapshot, null, 2);
+    }
+
+    function renderServerDevlog(data) {
+        var list = document.getElementById("devlog-server-list");
+        var stamp = document.getElementById("devlog-server-stamp");
+        var enabledEl = document.getElementById("devlog-enabled-count");
+        var botanaEl = document.getElementById("devlog-botana-count");
+        var financeEl = document.getElementById("devlog-finance-count");
+        var nextEl = document.getElementById("devlog-next-check");
+        if (!list || !stamp || !enabledEl || !botanaEl || !financeEl || !nextEl) return;
+        var generated = String((data && data.generated_at) || "").trim();
+        stamp.textContent = generated ? _safeDevlogText(generated.replace("T", " ").slice(0, 19)) : "Sem atualização";
+        var instances = (data && data.instances) || {};
+        enabledEl.textContent = String(Number(instances.enabled || 0));
+        botanaEl.textContent = String(Number(instances.botana || 0));
+        financeEl.textContent = String(Number(instances.finance || 0));
+        var consoleState = (data && data.console) || {};
+        var remain = Math.max(0, Number(consoleState.next_instance_check_in_seconds || 0));
+        nextEl.textContent = remain > 0 ? (remain + "s") : "-";
+        var items = (data && data.recent_events) || [];
+        if (!items.length) {
+            list.innerHTML = '<div class="devlog-empty">O Hub ainda não registrou eventos recentes.</div>';
+            return;
+        }
+        list.innerHTML = items.slice().reverse().map(function(line) {
+            var raw = _safeDevlogText(line);
+            var parts = raw.match(/^\\[(.*?)\\]\\s*(.*)$/);
+            var head = parts ? parts[1] : "Hub";
+            var body = parts ? parts[2] : raw;
+            return (
+                '<div class="devlog-entry">' +
+                    '<div class="devlog-entry-head">' +
+                        '<span>Hub</span>' +
+                        '<span>' + _escapeHtml(head) + '</span>' +
+                    '</div>' +
+                    '<strong>' + _escapeHtml(body) + '</strong>' +
+                '</div>'
+            );
+        }).join("");
+    }
+
+    async function loadHubDevlog() {
+        try {
+            var res = await fetch("/hub/api/devlog");
+            var data = await res.json();
+            renderServerDevlog(data || {});
+        } catch (err) {
+            var list = document.getElementById("devlog-server-list");
+            var stamp = document.getElementById("devlog-server-stamp");
+            if (stamp) stamp.textContent = "Falha ao carregar";
+            if (list) {
+                list.innerHTML = '<div class="devlog-empty">Nao foi possivel ler o devlog do Hub.</div>';
+            }
+        }
+    }
+
+    function _startDevlogPolling() {
+        if (_devlogServerPoll) return;
+        _devlogServerPoll = setInterval(function() {
+            if (_homeTab === "devlog") {
+                loadHubDevlog();
+            }
+        }, 4000);
+    }
+
+    function switchHomeTab(nextTab) {
+        _homeTab = nextTab === "devlog" ? "devlog" : "operations";
+        var opBtn = document.getElementById("tab-operations");
+        var devBtn = document.getElementById("tab-devlog");
+        var opPanel = document.getElementById("view-operations");
+        var devPanel = document.getElementById("view-devlog");
+        if (opBtn) {
+            opBtn.classList.toggle("active", _homeTab === "operations");
+            opBtn.setAttribute("aria-selected", _homeTab === "operations" ? "true" : "false");
+        }
+        if (devBtn) {
+            devBtn.classList.toggle("active", _homeTab === "devlog");
+            devBtn.setAttribute("aria-selected", _homeTab === "devlog" ? "true" : "false");
+        }
+        if (opPanel) opPanel.classList.toggle("active", _homeTab === "operations");
+        if (devPanel) devPanel.classList.toggle("active", _homeTab === "devlog");
+        _mergeDevlogState({ currentTab: _homeTab });
+        devlogPush("Navegação", "Aba trocada", "A HUD foi para a aba " + (_homeTab === "devlog" ? "Devlog" : "Operação") + ".");
+        if (_homeTab === "devlog") {
+            loadHubDevlog();
+            _startDevlogPolling();
+        }
+    }
+
     function _isBotanaAuthError(statusCode, message) {
         var msg = _normalizeUiText(message).toLowerCase();
         return Number(statusCode) === 401
@@ -1745,6 +2255,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             var user = String(auth.user || "").trim();
             if (user) {
                 fecharLoginBotana();
+                _mergeDevlogState({ lastAction: "Login confirmado", lastResult: "Botana autenticado como " + user });
+                devlogPush("Auth", "Login confirmado", "O Botana validou o usuário " + user + ".");
                 _setNfRecoveryFeedback({
                     kind: "success",
                     title: "Login confirmado",
@@ -1773,6 +2285,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 
     function abrirLoginBotana() {
         _botanaLoginWindow = window.open("/botana/login", "botana-login", "width=720,height=840,resizable=yes,scrollbars=yes");
+        _mergeDevlogState({ lastAction: "Abrir login do Botana", lastRoute: "/botana/login", lastResult: "Popup aberto" });
+        devlogPush("Auth", "Popup de login aberto", "A HUD abriu a janela de autenticação do Botana.");
         _startBotanaAuthPolling();
     }
 
@@ -1789,6 +2303,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         } catch (err) {
         }
         _botanaLoginWindow = null;
+        devlogPush("Auth", "Popup de login fechado", "A HUD encerrou o popup de autenticação do Botana.");
     }
 
     function mostrarLoginBotana(message) {
@@ -1798,7 +2313,38 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         msgEl.textContent = _normalizeUiText(message || "Você precisa entrar no Botana antes de iniciar essa recuperação.");
         el.classList.add("show");
         el.setAttribute("aria-hidden", "false");
+        _mergeDevlogState({ lastAction: "Solicitação de login", lastResult: _normalizeUiText(message || "Login exigido pelo Botana.") });
+        devlogPush("Auth", "Botana exigiu autenticação", _normalizeUiText(message || "A recuperação pediu login antes de continuar."));
         _startBotanaAuthPolling();
+    }
+
+    function fecharRecoveryWarning() {
+        var el = document.getElementById("recovery-warning-pop");
+        if (!el) return;
+        el.classList.remove("show");
+        el.setAttribute("aria-hidden", "true");
+    }
+
+    function mostrarRecoveryWarning(action) {
+        var el = document.getElementById("recovery-warning-pop");
+        var msgEl = document.getElementById("recovery-warning-msg");
+        var listEl = document.getElementById("recovery-warning-list");
+        if (!el || !msgEl || !listEl) return;
+        var count = Math.max(0, Number((action && action.subject_mismatch_count) || 0));
+        var notes = Array.isArray(action && action.subject_mismatch_notes) ? action.subject_mismatch_notes : [];
+        msgEl.textContent = count === 1
+            ? "O assunto do e-mail não bateu com os anexos em 1 mensagem. O Botana usou os anexos/XML como referência."
+            : ("O assunto do e-mail não bateu com os anexos em " + count + " mensagens. O Botana usou os anexos/XML como referência.");
+        if (notes.length) {
+            listEl.innerHTML = notes.map(function(item) {
+                return "<li>" + _escapeHtml(_normalizeUiText(String(item || ""))) + "</li>";
+            }).join("");
+        } else {
+            listEl.innerHTML = '<li>O Botana detectou divergência entre o assunto e os anexos, então priorizou os anexos/XML para decidir a NF correta.</li>';
+        }
+        el.classList.add("show");
+        el.setAttribute("aria-hidden", "false");
+        devlogPush("Recuperação", "Popup de divergência exibido", "O Hub alertou que assunto e anexos não coincidiam na recuperação.");
     }
 
     function _nfCheckboxes() {
@@ -1879,6 +2425,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                     return;
                 }
                 _stopNfRecoveryPolling();
+                _devlogRecoveryMarker = "";
+                _mergeDevlogState({ lastAction: "Recuperação entregue", lastRoute: "/botana/api/state", lastResult: "O Botana ainda não publicou ação recover_missing." });
+                devlogPush("Recuperação", "Aguardando ação do Botana", "A solicitação foi enviada, mas o estado ainda não mostrou a ação manual de recuperação.");
                 _setNfRecoveryFeedback({
                     kind: "success",
                     title: "Recuperação enviada ao Botana",
@@ -1892,6 +2441,22 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             var current = Math.max(0, Number(action.progress_current || 0));
             var total = Math.max(0, Number(action.progress_total || 0));
             if (active) {
+                var marker = [phase, current, total, Number(action.matched || 0), Number(action.inspected || 0)].join("|");
+                if (marker !== _devlogRecoveryMarker) {
+                    _devlogRecoveryMarker = marker;
+                    _mergeDevlogState({
+                        lastAction: phase === "processing" ? "Lendo e-mails no Botana" : "Buscando e-mails no Botana",
+                        lastRoute: "/botana/api/state",
+                        lastResult: "Progresso " + current + "/" + total
+                    });
+                    devlogPush(
+                        "Recuperação",
+                        phase === "processing" ? "Botana lendo e-mails" : "Botana buscando e-mails",
+                        total > 0
+                            ? ("Progresso " + current + "/" + total + ".")
+                            : "O Botana iniciou a preparação da recuperação."
+                    );
+                }
                 _setNfRecoveryFeedback({
                     kind: total > 0 ? "active" : "loading",
                     current: current,
@@ -1903,6 +2468,14 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             }
             _stopNfRecoveryPolling();
             if (String(action.status || "") === "error") {
+                _devlogRecoveryMarker = "";
+                _mergeDevlogState({
+                    lastAction: "Falha na recuperação",
+                    lastRoute: "/botana/api/state",
+                    lastResult: _normalizeUiText(String(action.message || action.detail || "Falha no Botana.")),
+                    lastResponse: action
+                });
+                devlogPush("Recuperação", "Botana retornou erro", _normalizeUiText(String(action.message || action.detail || "Não foi possível concluir a recuperação.")));
                 _setNfRecoveryFeedback({
                     kind: "error",
                     current: current,
@@ -1912,15 +2485,52 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                 });
                 return;
             }
+            _devlogRecoveryMarker = "";
+            _mergeDevlogState({
+                lastAction: "Recuperação concluída",
+                lastRoute: "/botana/api/state",
+                lastResult: _normalizeUiText(String(action.message || "Recuperação finalizada.")),
+                lastResponse: action
+            });
+            devlogPush("Recuperação", "Botana concluiu a recuperação", _normalizeUiText(String(action.message || "A recuperação terminou.")));
+            var mismatchCount = Math.max(0, Number(action.subject_mismatch_count || 0));
+            var warningToken = String(action.finished_at || "") + "|" + String(mismatchCount);
+            if (mismatchCount > 0 && warningToken !== _recoveryWarningToken) {
+                _recoveryWarningToken = warningToken;
+                mostrarRecoveryWarning(action);
+            }
             _setNfRecoveryFeedback({
                 kind: "success",
                 current: current || total,
                 total: total,
                 title: "Recuperação concluída",
-                note: "O Botana terminou a busca das NFs selecionadas."
+                note: (function() {
+                    var launched = Math.max(0, Number(action.launched || 0));
+                    var duplicates = Math.max(0, Number(action.duplicates || 0));
+                    var matched = Math.max(0, Number(action.matched || 0));
+                    var msg = _normalizeUiText(String(action.message || ""));
+                    if (msg) {
+                        return msg;
+                    }
+                    if (launched > 0) {
+                        return launched === 1
+                            ? "O Botana adicionou 1 lançamento novo na planilha."
+                            : ("O Botana adicionou " + launched + " lançamentos novos na planilha.");
+                    }
+                    if (matched > 0 && duplicates > 0) {
+                        return "As NFs foram encontradas, mas já estavam lançadas na planilha.";
+                    }
+                    if (matched > 0) {
+                        return "O Botana encontrou os e-mails, mas nada novo foi lançado na planilha.";
+                    }
+                    return "O Botana terminou a busca das NFs selecionadas.";
+                })()
             });
         } catch (err) {
             _stopNfRecoveryPolling();
+            _devlogRecoveryMarker = "";
+            _mergeDevlogState({ lastAction: "Erro ao acompanhar recuperação", lastRoute: "/botana/api/state", lastResult: "Falha de consulta do progresso." });
+            devlogPush("Recuperação", "Falha ao ler o progresso", "O Hub não conseguiu consultar /botana/api/state para acompanhar a recuperação.");
             _setNfRecoveryFeedback({
                 kind: "error",
                 title: "Erro ao acompanhar o Botana",
@@ -1933,6 +2543,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         _stopNfRecoveryPolling();
         _nfRecoveryPollAttempts = 0;
         _nfRecoverySeenAction = false;
+        _devlogRecoveryMarker = "";
+        _recoveryWarningToken = "";
         _nfRecoveryPollTimer = setInterval(function() {
             _pollNfRecoveryState();
         }, 1500);
@@ -1963,11 +2575,17 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             toggle.checked = total > 0 && selected.length === total;
             toggle.indeterminate = selected.length > 0 && selected.length < total;
         }
+        _mergeDevlogState({
+            selectedNfs: selected.length,
+            lastAction: total > 0 ? "Seleção de NFs atualizada" : (_devlogState.lastAction || ""),
+            lastResult: total > 0 ? (selected.length + " NF(s) marcadas de " + total + " disponíveis.") : (_devlogState.lastResult || "")
+        });
     }
 
     function toggleSelecionarTodasFaltantes(source) {
         var mark = !!(source && source.checked);
         _nfCheckboxes().forEach(function(el) { el.checked = mark; });
+        devlogPush("Diagnóstico", mark ? "Selecionou todas as NFs faltantes" : "Limpou a seleção de NFs", "A lista de NFs faltantes foi atualizada em bloco.");
         atualizarAcoesFaltantes();
     }
 
@@ -1975,6 +2593,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         var selecionadas = _nfsFaltantesSelecionadas();
         var btn = document.getElementById("btn-recuperar-faltantes");
         if (!selecionadas.length) {
+            devlogPush("Recuperação", "Tentativa sem NFs selecionadas", "O Hub bloqueou o envio porque nenhuma NF faltante foi marcada.");
             _setNfRecoveryFeedback({
                 kind: "error",
                 title: "Nenhuma NF selecionada",
@@ -1988,12 +2607,20 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             ? ("Enviar a NF " + selecionadas[0] + " para Recuperar e-mails no Botana?")
             : ("Enviar " + quantidade + " NFs faltantes para Recuperar e-mails no Botana?");
         if (!window.confirm(confirmMsg)) {
+            devlogPush("Recuperação", "Envio cancelado", "A confirmação para recuperar as NFs selecionadas foi cancelada.");
             return;
         }
         if (btn) {
             btn.disabled = true;
             btn.textContent = "Enviando...";
         }
+        _mergeDevlogState({
+            lastAction: "Enviar NFs para recuperar",
+            lastRoute: "/botana/api/recover-emails",
+            lastResult: selecionadas.length + " NF(s) enviadas ao Botana.",
+            lastResponse: { nf_list: selecionadas.slice() }
+        });
+        devlogPush("Recuperação", "Envio iniciado", "O Hub enviou " + selecionadas.length + " NF(s) para /botana/api/recover-emails.");
         _setNfRecoveryFeedback({
             kind: "loading",
             title: "Enviando ao Botana",
@@ -2011,6 +2638,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             });
             var dados = await resposta.json().catch(function() { return {}; });
             if (resposta.ok && dados.ok) {
+                _mergeDevlogState({ lastResponse: dados, lastResult: "Recuperação aceita pelo Botana." });
+                devlogPush("Recuperação", "Botana aceitou a solicitação", "O Hub iniciou o polling de /botana/api/state para acompanhar a recuperação.");
                 fecharLoginBotana();
                 _startNfRecoveryPolling();
             } else {
@@ -2018,6 +2647,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                 if (_isBotanaAuthError(resposta.status, failMsg)) {
                     mostrarLoginBotana(failMsg);
                 }
+                _mergeDevlogState({ lastResponse: dados, lastResult: failMsg });
+                devlogPush("Recuperação", "Botana recusou a solicitação", failMsg);
                 _setNfRecoveryFeedback({
                     kind: "error",
                     title: "Falha ao iniciar",
@@ -2025,6 +2656,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                 });
             }
         } catch (err) {
+            _mergeDevlogState({ lastResult: "Erro de rede ao enviar recuperação." });
+            devlogPush("Recuperação", "Erro de rede", "A chamada para /botana/api/recover-emails falhou: " + err);
             _setNfRecoveryFeedback({
                 kind: "error",
                 title: "Erro de rede",
@@ -2039,6 +2672,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         const tipo = document.getElementById("filtro-tipo").value;
         document.getElementById("div-mes").style.display = (tipo === "mes") ? "block" : "none";
         document.getElementById("div-nfs").style.display = (tipo === "nfs") ? "grid" : "none";
+        _mergeDevlogState({ lastAction: "Filtro de diagnóstico alterado", lastResult: "Tipo ativo: " + tipo });
+        devlogPush("Diagnóstico", "Tipo de busca alterado", "O card de NFs faltantes mudou para o modo " + tipo + ".");
     }
 
     function _camposRelatorioVisiveis() {
@@ -2116,18 +2751,36 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         const btn = document.getElementById("btn-gerar-relatorio");
         btn.innerText = "Buscando...";
         btn.disabled = true;
+        _mergeDevlogState({
+            lastAction: "Gerar diagnóstico de planilha",
+            lastRoute: "/botana/api/relatorio-nfs?" + queryParams.toString(),
+            lastResult: "Consulta enviada ao Botana.",
+            lastResponse: null
+        });
+        devlogPush("Diagnóstico", "Consulta iniciada", "O Hub pediu o relatório de NFs faltantes para " + empresa + " no modo " + tipo + ".");
 
         fetch("/botana/api/relatorio-nfs?" + queryParams.toString())
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.status === "success") {
                     dadosRelatorioAtual = data;
+                    _mergeDevlogState({
+                        lastResponse: data,
+                        lastResult: "Diagnóstico concluído: " + Number(data.totalFaltante || 0) + " NF(s) faltantes."
+                    });
+                    devlogPush("Diagnóstico", "Resultado recebido", "O Botana devolveu " + Number(data.totalFaltante || 0) + " NF(s) faltantes.");
                     renderizarResultado();
                 } else {
+                    _mergeDevlogState({ lastResponse: data, lastResult: String(data.message || "Erro desconhecido") });
+                    devlogPush("Diagnóstico", "Falha no relatório", String(data.message || "Erro desconhecido"));
                     alert("Erro ao gerar relatório: " + (data.message || "Erro desconhecido"));
                 }
             })
-            .catch(function(err) { alert("Erro de rede: " + err); })
+            .catch(function(err) {
+                _mergeDevlogState({ lastResult: "Erro de rede no diagnóstico." });
+                devlogPush("Diagnóstico", "Erro de rede", "A chamada de relatório falhou: " + err);
+                alert("Erro de rede: " + err);
+            })
             .finally(function() {
                 btn.innerText = "Verificar";
                 btn.disabled = false;
@@ -2173,6 +2826,11 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             container.style.display = "none";
             document.getElementById("btn-baixar-csv").style.display = "none";
         }
+        devlogPush(
+            "Diagnóstico",
+            totalFaltante > 0 ? "Tabela de faltantes atualizada" : "Nenhuma NF faltante",
+            "Encontradas " + totalEncontrado + " de " + totalEsperado + " NF(s) esperadas."
+        );
         atualizarAcoesFaltantes();
     }
 
@@ -2193,6 +2851,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         a.download = "nfs_faltantes_" + d.rangeInicio + "_a_" + d.rangeFim + ".csv";
         a.click();
         URL.revokeObjectURL(url);
+        _mergeDevlogState({ lastAction: "Exportar CSV", lastResult: faltantes.length + " NF(s) exportadas em CSV." });
+        devlogPush("Diagnóstico", "CSV exportado", "A HUD exportou " + faltantes.length + " NF(s) faltantes para CSV.");
     }
 
     mudarFiltro();
@@ -2213,6 +2873,13 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       logContainer.innerHTML = "";
       logContainer.style.display = "block";
       pollingCorrecaoDesde = 0;
+      _mergeDevlogState({
+        lastAction: "Iniciar correção guiada",
+        lastRoute: "/botana/api/clean-sheets",
+        lastResult: "Correção enviada para " + empresaSelecionada + (abaFiltro ? (" | aba " + abaFiltro) : ""),
+        lastResponse: { empresa: empresaSelecionada, aba: abaFiltro }
+      });
+      devlogPush("Correção", "Correção iniciada", "O Hub pediu a correção guiada para " + empresaSelecionada + (abaFiltro ? (" na aba " + abaFiltro) : " em todas as abas.") );
 
       fetch("/botana/api/clean-sheets", {
         method: "POST",
@@ -2223,9 +2890,13 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       .then(function(arr) {
         var ok = arr[0]; var dados = arr[1];
         if (ok && dados.ok) {
+          _mergeDevlogState({ lastResponse: dados, lastResult: String(dados.friendly || "Correção iniciada.") });
+          devlogPush("Correção", "Botana aceitou a correção", String(dados.friendly || "Correção iniciada."));
           adicionarLinhaLog("info", dados.friendly || "Correção iniciada.");
           iniciarPollingLog();
         } else {
+          _mergeDevlogState({ lastResponse: dados, lastResult: String(dados.friendly || dados.message || "Erro ao iniciar.") });
+          devlogPush("Correção", "Falha ao iniciar correção", String(dados.friendly || dados.message || "Erro ao iniciar."));
           adicionarLinhaLog("erro", dados.friendly || dados.message || "Erro ao iniciar.");
           btn.innerText = "Iniciar Correção";
           btn.disabled = false;
@@ -2233,6 +2904,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         }
       })
       .catch(function(err) {
+        _mergeDevlogState({ lastResult: "Erro de rede na correção guiada." });
+        devlogPush("Correção", "Erro de rede", "A chamada de correção falhou: " + err);
         adicionarLinhaLog("erro", "Erro de rede: " + err);
         btn.innerText = "Iniciar Correção";
         btn.disabled = false;
@@ -2252,6 +2925,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         .then(function(data) {
           if (data.ok) {
             var entradas = data.entries || [];
+            if (entradas.length) {
+              devlogPush("Correção", "Novas linhas de log", entradas.length + " evento(s) chegaram do log de correção.");
+            }
             for (var i = 0; i < entradas.length; i++) {
               adicionarLinhaLog(entradas[i].tipo, "[" + entradas[i].ts + "] " + entradas[i].msg);
             }
@@ -2264,11 +2940,15 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
               btn.innerText = "Iniciar Correção";
               btn.disabled = false;
               btn.style.background = "#176fe5";
+              _mergeDevlogState({ lastAction: "Correção finalizada", lastRoute: "/botana/api/clean-sheets/log", lastResult: "O polling do log foi encerrado." });
+              devlogPush("Correção", "Processo finalizado", "O Botana encerrou a correção guiada e o polling do log foi finalizado.");
               adicionarLinhaLog("info", "--- Processo finalizado ---");
             }
           }
         })
-        .catch(function() {});
+        .catch(function() {
+          devlogPush("Correção", "Falha ao ler log", "O Hub não conseguiu buscar novas linhas do log de correção.");
+        });
     }
 
     function adicionarLinhaLog(tipo, msg) {
@@ -2283,6 +2963,12 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       logContainer.appendChild(linha);
       logContainer.scrollTop = logContainer.scrollHeight;
     }
+
+    renderDevlogEntries();
+    renderDevlogSnapshot();
+    loadHubDevlog();
+    _startDevlogPolling();
   </script>
 </body>
 </html>"""
+

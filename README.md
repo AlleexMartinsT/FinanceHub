@@ -131,12 +131,17 @@ Examples:
 - The `Verificar NFs Faltantes` panel can now select missing NFs and send them straight to Botana `Recuperar e-mails`, so sheet checking and email recovery can happen from the same flow.
 - In that same panel, the recovery action now uses the shorter button label `Recuperar NFs`.
 - After sending selected missing NFs to Botana recovery, the Hub now shows a compact loading/progress bar instead of a long status sentence.
+- When Botana finishes that recovery, the Hub now distinguishes between `email found`, `already launched`, and `actually added to the sheet`, instead of always showing a generic success message.
+- If Botana had to trust attachments/XML because the email subject disagreed with the NF in the attachments, the Hub now opens a warning popup instead of only showing a plain `added to sheet` conclusion.
+- The Hub home now includes a `Devlog` tab with front-end events, the latest Hub tail log, and a live snapshot of the current page flow so operational issues can be described with exact steps and outcomes.
 - If Botana answers with an authentication error during that recovery flow, the Hub now normalizes the message text and opens a login popup instead of only showing a plain warning.
 - That login popup now polls Botana auth state and closes itself automatically once the login is actually confirmed.
 - The Hub desktop layout now uses a slightly wider content container and less compressed summary cards, so helper texts stay on one line more often without stretching the page edge to edge.
 - The `Manutenção Guiada` and `Diagnóstico de Planilha` cards now center their explanatory text, and the `Por Range de NF` inputs move to a dedicated row so the typed numbers stay easier to read.
 - In `Diagnóstico de Planilha`, the top two filters now share the same centered column width used by the NF range row, so the whole block stays visually aligned.
 - The main action button in `Diagnóstico de Planilha` is now centered on its own row and uses the shorter label `Verificar`.
+- The NF range inputs in `Diagnóstico de Planilha` no longer show suggestion placeholders inside the fields.
+- In `Diagnóstico de Planilha`, the CSV export action now uses an icon-only button with tooltip instead of the full `Baixar CSV` label.
 
 ## Configuration File
 
