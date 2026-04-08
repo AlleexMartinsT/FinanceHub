@@ -130,6 +130,7 @@ Examples:
 - In that panel, `Enter` advances to the next visible field, and pressing `Enter` on `Verificar Faltantes` runs the check.
 - The `Verificar NFs Faltantes` panel can now select missing NFs and send them straight to Botana `Recuperar e-mails`, so sheet checking and email recovery can happen from the same flow.
 - In that same panel, the recovery action now uses the shorter button label `Recuperar NFs`.
+- In that same action row, the `Recuperar NFs` button now uses a narrower width so `Selecionar todas as NFs faltantes` stays on a single line more often.
 - After sending selected missing NFs to Botana recovery, the Hub now shows a compact loading/progress bar instead of a long status sentence.
 - When Botana finishes that recovery, the Hub now distinguishes between `email found`, `already launched`, and `actually added to the sheet`, instead of always showing a generic success message.
 - If Botana had to trust attachments/XML because the email subject disagreed with the NF in the attachments, the Hub now opens a warning popup instead of only showing a plain `added to sheet` conclusion.
@@ -274,6 +275,7 @@ Runtime logs on server:
 - `C:\FinanceHub\logs\botana_principal_stdout.log`
 - `C:\FinanceHub\logs\botana_principal_stderr.log`
 - The Hub server CMD now keeps a static ASCII HUD on screen, with runtime summary, instance map, recent events, and countdowns for the next Hub and instance update checks.
+- Inside that same CMD HUD, you can trigger instant checks with keyboard shortcuts: `U` for Hub update now, `I` for instance update now, and `A` for both at once.
 
 ## Notes
 

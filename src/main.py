@@ -11,6 +11,11 @@ import textwrap
 import threading
 import time
 
+try:
+    import msvcrt  # type: ignore
+except Exception:
+    msvcrt = None
+
 from auto_updater import AutoUpdater
 from core.runtime import InstanceRuntimeManager
 from storage.settings import AppSettingsStore
@@ -78,6 +83,24 @@ def _format_next_check(timestamp: float) -> str:
     if value <= 0:
         return "aguardando agenda"
     return datetime.fromtimestamp(value).strftime("%d/%m/%Y %H:%M:%S")
+
+
+def _read_console_shortcut() -> str:
+    if msvcrt is None:
+        return ""
+    try:
+        if not msvcrt.kbhit():
+            return ""
+        key = msvcrt.getwch()
+    except Exception:
+        return ""
+    if key in ("\x00", "\xe0"):
+        try:
+            msvcrt.getwch()
+        except Exception:
+            pass
+        return ""
+    return str(key or "").strip().lower()
 
 
 class ConsoleHud:
@@ -204,6 +227,7 @@ class ConsoleHud:
 
         footer_rows = [
             "Hook manual .......... POST /hub/api/update/check (token opcional em HUB_UPDATE_WEBHOOK_SECRET)",
+            "Atalhos .............. U = Hub agora | I = instancias agora | A = ambos agora",
             "Ctrl+C ............... encerra o Hub",
             "A tela e fixa: eventos entram aqui sem quebrar a HUD.",
         ]
@@ -275,6 +299,36 @@ def main() -> None:
     server.warm_up_enabled_backends()
     hud.add_event(f"[Hub] FinanceAnaHub online em http://{config.panel_host}:{config.panel_port}")
 
+    def _handle_console_shortcut(key: str) -> None:
+        shortcut = str(key or "").strip().lower()
+        if not shortcut:
+            return
+        if shortcut == "u":
+            queued = bool(updater.trigger_check(reason="cmd-hud"))
+            hud.add_event(
+                "[CMD] Checagem imediata do Hub "
+                + ("solicitada pelo atalho U" if queued else "indisponivel no momento")
+            )
+            return
+        if shortcut == "i":
+            queued = bool(server.trigger_instance_update_check(reason="cmd-hud"))
+            hud.add_event(
+                "[CMD] Checagem imediata das instancias "
+                + ("solicitada pelo atalho I" if queued else "indisponivel no momento")
+            )
+            return
+        if shortcut == "a":
+            hub_ok = bool(updater.trigger_check(reason="cmd-hud"))
+            inst_ok = bool(server.trigger_instance_update_check(reason="cmd-hud"))
+            if hub_ok or inst_ok:
+                hud.add_event(
+                    "[CMD] Checagem imediata combinada solicitada pelo atalho A "
+                    f"(hub={'ok' if hub_ok else 'off'}, instancias={'ok' if inst_ok else 'off'})"
+                )
+            else:
+                hud.add_event("[CMD] Atalho A ignorado: nenhum updater manual disponivel")
+            return
+
     try:
         while True:
             hud.render(
@@ -285,7 +339,12 @@ def main() -> None:
                 updater_state=updater.get_console_state(),
                 server_state=server.get_console_state(),
             )
-            time.sleep(1)
+            for _ in range(10):
+                shortcut = _read_console_shortcut()
+                if shortcut:
+                    _handle_console_shortcut(shortcut)
+                    break
+                time.sleep(0.1)
             if updater.consume_restart_request():
                 hud.add_event("[Hub Updater] Reiniciando processo do HUB")
                 hud.render(

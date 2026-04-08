@@ -64,6 +64,7 @@ function Show-NextActions {
   Write-HudLine ("  Start cmd   : {0}\run_hub.bat" -f $InstallDir) White
   if ($RunHub) {
     Write-HudLine "  Next action : the Hub will start in this console now." White
+    Write-HudLine "  Runtime keys: U=Hub update now | I=instance update now | A=both now" White
   } else {
     Write-HudLine "  Next action : run the command above when you want to start the Hub." White
   }

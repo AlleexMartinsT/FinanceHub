@@ -177,6 +177,7 @@ class HubHttpServer:
         self._proc_lock = threading.Lock()
         self._inst_updater_thread: threading.Thread | None = None
         self._inst_updater_stop = threading.Event()
+        self._inst_updater_wake = threading.Event()
         self._inst_updater_interval_minutes = 5
         self._inst_updater_next_at = 0.0
         self._inst_updater_git_missing_logged = False
@@ -476,19 +477,14 @@ class HubHttpServer:
 
     def _instance_updater_loop(self) -> None:
         self._diag(f"[Instance Updater] Ativo: intervalo={self._inst_updater_interval_minutes}min")
-        # Primeira checagem imediata, igual comportamento esperado de startup.
         self._inst_updater_next_at = time.time()
-        self._run_instance_update_cycle()
-        self._inst_updater_next_at = time.time() + (max(1, self._inst_updater_interval_minutes) * 60)
         while not self._inst_updater_stop.is_set():
-            for _ in range(max(1, self._inst_updater_interval_minutes) * 60):
-                if self._inst_updater_stop.is_set():
-                    self._inst_updater_next_at = 0.0
-                    return
-                time.sleep(1)
+            timeout = max(0.0, self._inst_updater_next_at - time.time())
+            self._inst_updater_wake.wait(timeout=timeout)
             if self._inst_updater_stop.is_set():
                 self._inst_updater_next_at = 0.0
                 return
+            self._inst_updater_wake.clear()
             self._run_instance_update_cycle()
             self._inst_updater_next_at = time.time() + (max(1, self._inst_updater_interval_minutes) * 60)
 
@@ -509,6 +505,7 @@ class HubHttpServer:
 
     def start_instance_updater(self, enabled: bool, interval_minutes: int) -> None:
         self._inst_updater_stop.clear()
+        self._inst_updater_wake.clear()
         self._inst_updater_interval_minutes = max(1, int(interval_minutes or 5))
         if not enabled:
             self._inst_updater_next_at = 0.0
@@ -521,6 +518,14 @@ class HubHttpServer:
             name="instance-updater",
         )
         self._inst_updater_thread.start()
+
+    def trigger_instance_update_check(self, reason: str = "manual") -> bool:
+        if not (self._inst_updater_thread and self._inst_updater_thread.is_alive()):
+            return False
+        self._inst_updater_next_at = time.time()
+        self._inst_updater_wake.set()
+        self._diag(f"[Instance Updater] Checagem imediata solicitada ({reason})")
+        return True
 
     def _clone_if_needed(self, inst: InstanceConfig) -> bool:
         app_path = Path(str(inst.app_dir or ""))
@@ -816,6 +821,7 @@ class HubHttpServer:
 
     def stop(self):
         self._inst_updater_stop.set()
+        self._inst_updater_wake.set()
         self._inst_updater_next_at = 0.0
         if self.httpd:
             self.httpd.shutdown()
@@ -1329,9 +1335,10 @@ def _base_styles() -> str:
     #nf-faltantes-controls > *{min-width:0}
     #nf-faltantes-controls select,#nf-faltantes-controls input,#nf-faltantes-controls button{width:100%;box-sizing:border-box}
     #nf-faltantes-actions{display:none;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:14px;padding:14px 16px;border:1px solid #d9d0c5;border-radius:16px;background:#fff8ee}
-    #nf-faltantes-actions button{width:auto;min-width:260px}
+    #nf-faltantes-actions button{width:auto;min-width:170px;padding-inline:16px}
     .nf-action-meta{display:flex;flex-direction:column;gap:4px}
     .nf-action-toggle{display:flex;align-items:center;gap:10px;font-weight:700;color:#2f3a45}
+    .nf-action-toggle span{white-space:nowrap}
     .nf-action-toggle input{width:18px;height:18px;flex:0 0 auto}
     .nf-action-hint{font-size:13px;color:#5d6b7b}
     #nf-faltantes-feedback{display:none;margin-top:12px;padding:14px 16px;border-radius:16px;border:1px solid #d8d0c4;background:#fffefa;color:#253243}
