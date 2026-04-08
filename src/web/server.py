@@ -116,7 +116,9 @@ def _normalize_ptbr_text(text: str) -> str:
     return out
 
 
-def _inject_back_to_hub_button(html: str) -> str:
+def _inject_back_to_hub_button(html: str, enabled: bool = True) -> str:
+    if not enabled:
+        return html
     if 'id="hub-back-button"' in html:
         return html
 
@@ -605,7 +607,7 @@ class HubHttpServer:
         return urllib.parse.urlunparse(("", "", path, "", parsed.query or "", parsed.fragment or ""))
 
     @staticmethod
-    def _rewrite_text_for_prefix(body: bytes, content_type: str, prefix: str) -> bytes:
+    def _rewrite_text_for_prefix(body: bytes, content_type: str, prefix: str, request_path: str = "") -> bytes:
         ctype = (content_type or "").lower()
         if "text/html" not in ctype and "javascript" not in ctype:
             return body
@@ -652,7 +654,8 @@ class HubHttpServer:
 
         text = _normalize_ptbr_text(text)
         if "text/html" in ctype:
-            text = _inject_back_to_hub_button(text)
+            popup_mode = "popup=1" in str(request_path or "").lower()
+            text = _inject_back_to_hub_button(text, enabled=not popup_mode)
 
         return text.encode("utf-8")
 
@@ -682,7 +685,7 @@ class HubHttpServer:
             with urllib.request.urlopen(req, timeout=45) as resp:
                 raw = resp.read()
                 ct = resp.headers.get("Content-Type", "")
-                raw = self._rewrite_text_for_prefix(raw, ct, prefix)
+                raw = self._rewrite_text_for_prefix(raw, ct, prefix, handler.path)
 
                 handler.send_response(resp.status)
                 for k, v in resp.headers.items():
@@ -700,7 +703,7 @@ class HubHttpServer:
         except urllib.error.HTTPError as e:
             raw = e.read()
             ct = e.headers.get("Content-Type", "")
-            raw = self._rewrite_text_for_prefix(raw, ct, prefix)
+            raw = self._rewrite_text_for_prefix(raw, ct, prefix, handler.path)
             handler.send_response(e.code)
             for k, v in e.headers.items():
                 kl = k.lower()
@@ -1178,6 +1181,7 @@ def _base_styles() -> str:
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:20px;
+      align-items:start;
     }
     .view-tabs{
       margin-top:24px;
@@ -1211,6 +1215,7 @@ def _base_styles() -> str:
       border-radius:26px;
       padding:24px;
       box-shadow:var(--shadow);
+      height:auto;
     }
     .tool-card.tool-card-primary{background:linear-gradient(180deg, #f5f9ff, #fffdfb)}
     .tool-card.tool-card-secondary{background:linear-gradient(180deg, #fffefb, #f9f7f2)}
@@ -1290,8 +1295,15 @@ def _base_styles() -> str:
       max-width:240px;
     }
     #btn-gerar-relatorio{
-      grid-column:1/-1;
       width:min(100%,260px);
+    }
+    .nf-report-actions{
+      grid-column:1/-1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      width:100%;
     }
     .csv-icon-btn{
       display:inline-flex;
@@ -1303,6 +1315,7 @@ def _base_styles() -> str:
       padding:0;
       font-size:18px;
       line-height:1;
+      flex:0 0 auto;
     }
     #nf-faltantes-card{padding:24px}
     #nf-faltantes-controls{
@@ -1609,6 +1622,17 @@ def _base_styles() -> str:
       white-space:pre-wrap;
       word-break:break-word;
     }
+    .devlog-actions{
+      margin-top:18px;
+      display:flex;
+      justify-content:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .devlog-actions button{
+      width:auto;
+      min-width:180px;
+    }
     @media (max-width:760px){
       body{padding:14px}
       .hero-panel,.hub-layout,.actions-panel,.devlog-grid,.devlog-columns,.devlog-stats{grid-template-columns:1fr}
@@ -1631,6 +1655,7 @@ def _base_styles() -> str:
       #nf-faltantes-actions button{width:100%}
       #div-nfs{grid-template-columns:1fr}
       #btn-corrigir,#btn-gerar-relatorio{max-width:none;width:100%}
+      .nf-report-actions{width:100%;flex-wrap:nowrap}
       .auth-pop-actions{flex-direction:column}
       .auth-pop-actions button{width:100%}
       .view-tab{width:100%}
@@ -1880,8 +1905,10 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             <span>até</span>
             <input type="number" id="input-nf-fim">
         </div>
-        <button id="btn-gerar-relatorio" class="btn-secondary" onclick="gerarRelatorio()">Verificar</button>
-        <button id="btn-baixar-csv" class="btn-neutral csv-icon-btn" onclick="baixarCSV()" style="display: none;" title="Baixar CSV" aria-label="Baixar CSV"><span aria-hidden="true">&#8681;</span></button>
+        <div class="nf-report-actions">
+          <button id="btn-gerar-relatorio" class="btn-secondary" onclick="gerarRelatorio()">Verificar</button>
+          <button id="btn-baixar-csv" class="btn-neutral csv-icon-btn" onclick="baixarCSV()" disabled title="Baixar CSV" aria-label="Baixar CSV"><span aria-hidden="true">&#8681;</span></button>
+        </div>
       </div>
       <div id="resumo-container"></div>
       <div id="nf-faltantes-actions">
@@ -1963,6 +1990,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
               <span>Próxima checagem do Hub</span>
             </div>
           </div>
+          <div class="devlog-actions">
+            <button id="devlog-copy-btn" type="button" class="btn-neutral" onclick="copyDevlog()">Copiar rápido</button>
+          </div>
           <div class="devlog-json" id="devlog-snapshot">Aguardando eventos da página.</div>
         </section>
         <div class="devlog-columns">
@@ -2020,6 +2050,9 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     let _homeTab = "operations";
     let _devlogEntries = [];
     let _devlogServerPoll = null;
+    let _devlogServerState = { recent_events: [] };
+    let _devlogNextCheckRemaining = 0;
+    let _devlogSecondTimer = null;
     let _recoveryWarningToken = "";
     let _devlogState = {
         currentTab: "operations",
@@ -2083,6 +2116,85 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    function _nfList(value) {
+        var raw = Array.isArray(value) ? value : [];
+        var seen = {};
+        return raw.map(function(item) {
+            return String(item == null ? "" : item).trim();
+        }).filter(function(item) {
+            return !!item && !seen[item] && (seen[item] = true);
+        });
+    }
+
+    function _nfListLabel(value, limit) {
+        var items = _nfList(value);
+        var maxItems = Math.max(1, Number(limit || 8));
+        if (!items.length) return "";
+        if (items.length <= maxItems) return items.join(", ");
+        return items.slice(0, maxItems).join(", ") + " e mais " + (items.length - maxItems);
+    }
+
+    function _renderDevlogNextCheck() {
+        var nextEl = document.getElementById("devlog-next-check");
+        if (!nextEl) return;
+        nextEl.textContent = _devlogNextCheckRemaining > 0 ? (_devlogNextCheckRemaining + "s") : "-";
+    }
+
+    function _startDevlogSecondTimer() {
+        if (_devlogSecondTimer) return;
+        _devlogSecondTimer = setInterval(function() {
+            if (_devlogNextCheckRemaining > 0) {
+                _devlogNextCheckRemaining -= 1;
+                _renderDevlogNextCheck();
+            }
+        }, 1000);
+    }
+
+    async function copyDevlog() {
+        var btn = document.getElementById("devlog-copy-btn");
+        var original = btn ? btn.textContent : "";
+        var snapshot = document.getElementById("devlog-snapshot");
+        var frontLines = _devlogEntries.map(function(item) {
+            return "[" + item.at + "] [" + item.source + "] " + item.title + (item.detail ? (" - " + item.detail) : "");
+        });
+        var serverLines = Array.isArray(_devlogServerState.recent_events) ? _devlogServerState.recent_events : [];
+        var payload = [
+            "=== Snapshot ===",
+            snapshot ? String(snapshot.textContent || "").trim() : "",
+            "",
+            "=== Eventos da pagina ===",
+            frontLines.length ? frontLines.join("\\n") : "Nenhum evento.",
+            "",
+            "=== Eventos do Hub ===",
+            serverLines.length ? serverLines.join("\\n") : "Nenhum evento."
+        ].join("\\n");
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(payload);
+            } else {
+                var area = document.createElement("textarea");
+                area.value = payload;
+                area.setAttribute("readonly", "readonly");
+                area.style.position = "fixed";
+                area.style.opacity = "0";
+                document.body.appendChild(area);
+                area.focus();
+                area.select();
+                document.execCommand("copy");
+                document.body.removeChild(area);
+            }
+            if (btn) {
+                btn.textContent = "Copiado";
+                setTimeout(function() {
+                    btn.textContent = original || "Copiar rápido";
+                }, 1600);
+            }
+            devlogPush("Devlog", "Copia concluida", "O Hub copiou o snapshot e os eventos atuais.");
+        } catch (err) {
+            devlogPush("Devlog", "Falha ao copiar", "Nao foi possivel copiar o devlog rapidamente.");
+        }
     }
 
     function _mergeDevlogState(patch) {
@@ -2149,8 +2261,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         var enabledEl = document.getElementById("devlog-enabled-count");
         var botanaEl = document.getElementById("devlog-botana-count");
         var financeEl = document.getElementById("devlog-finance-count");
-        var nextEl = document.getElementById("devlog-next-check");
-        if (!list || !stamp || !enabledEl || !botanaEl || !financeEl || !nextEl) return;
+        if (!list || !stamp || !enabledEl || !botanaEl || !financeEl) return;
+        _devlogServerState = data || { recent_events: [] };
         var generated = String((data && data.generated_at) || "").trim();
         stamp.textContent = generated ? _safeDevlogText(generated.replace("T", " ").slice(0, 19)) : "Sem atualização";
         var instances = (data && data.instances) || {};
@@ -2158,8 +2270,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         botanaEl.textContent = String(Number(instances.botana || 0));
         financeEl.textContent = String(Number(instances.finance || 0));
         var consoleState = (data && data.console) || {};
-        var remain = Math.max(0, Number(consoleState.next_instance_check_in_seconds || 0));
-        nextEl.textContent = remain > 0 ? (remain + "s") : "-";
+        _devlogNextCheckRemaining = Math.max(0, Number(consoleState.next_instance_check_in_seconds || 0));
+        _renderDevlogNextCheck();
         var items = (data && data.recent_events) || [];
         if (!items.length) {
             list.innerHTML = '<div class="devlog-empty">O Hub ainda não registrou eventos recentes.</div>';
@@ -2198,6 +2310,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     }
 
     function _startDevlogPolling() {
+        _startDevlogSecondTimer();
         if (_devlogServerPoll) return;
         _devlogServerPoll = setInterval(function() {
             if (_homeTab === "devlog") {
@@ -2284,8 +2397,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     }
 
     function abrirLoginBotana() {
-        _botanaLoginWindow = window.open("/botana/login", "botana-login", "width=720,height=840,resizable=yes,scrollbars=yes");
-        _mergeDevlogState({ lastAction: "Abrir login do Botana", lastRoute: "/botana/login", lastResult: "Popup aberto" });
+        _botanaLoginWindow = window.open("/botana/login?popup=1", "botana-login", "width=560,height=760,resizable=yes,scrollbars=yes");
+        _mergeDevlogState({ lastAction: "Abrir login do Botana", lastRoute: "/botana/login?popup=1", lastResult: "Popup aberto" });
         devlogPush("Auth", "Popup de login aberto", "A HUD abriu a janela de autenticação do Botana.");
         _startBotanaAuthPolling();
     }
@@ -2440,29 +2553,60 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             var phase = String(action.phase || "");
             var current = Math.max(0, Number(action.progress_current || 0));
             var total = Math.max(0, Number(action.progress_total || 0));
+            var requestedNfTotal = Math.max(0, Number(action.requested_nf_count || 0));
+            var foundNfs = _nfList(action.found_nf_numbers);
+            var missingNfs = _nfList(action.missing_nf_numbers);
             if (active) {
-                var marker = [phase, current, total, Number(action.matched || 0), Number(action.inspected || 0)].join("|");
+                var marker = [phase, current, total, Number(action.matched || 0), Number(action.inspected || 0), foundNfs.join(","), missingNfs.join(",")].join("|");
                 if (marker !== _devlogRecoveryMarker) {
                     _devlogRecoveryMarker = marker;
+                    var stateText = "";
+                    if (phase === "processing") {
+                        stateText = total > 0
+                            ? ("Leitura " + current + "/" + total + " | NFs localizadas " + (foundNfs.length || 0) + "/" + (requestedNfTotal || foundNfs.length || 0))
+                            : "Leitura iniciada no Botana.";
+                    } else if (requestedNfTotal > 0) {
+                        stateText = "NFs localizadas " + foundNfs.length + "/" + requestedNfTotal;
+                        if (missingNfs.length) {
+                            stateText += " | Pendentes: " + _nfListLabel(missingNfs, 6);
+                        }
+                    } else {
+                        stateText = total > 0 ? ("Progresso " + current + "/" + total) : "Preparando a recuperação no Botana.";
+                    }
                     _mergeDevlogState({
                         lastAction: phase === "processing" ? "Lendo e-mails no Botana" : "Buscando e-mails no Botana",
                         lastRoute: "/botana/api/state",
-                        lastResult: "Progresso " + current + "/" + total
+                        lastResult: stateText,
+                        lastResponse: action
                     });
                     devlogPush(
                         "Recuperação",
                         phase === "processing" ? "Botana lendo e-mails" : "Botana buscando e-mails",
-                        total > 0
-                            ? ("Progresso " + current + "/" + total + ".")
-                            : "O Botana iniciou a preparação da recuperação."
+                        stateText
                     );
                 }
+                var feedbackCurrent = current;
+                var feedbackTotal = total;
+                var feedbackNote = total > 0 ? "Recuperação em andamento para as NFs selecionadas." : "Preparando a recuperação no Botana.";
+                if (phase !== "processing" && requestedNfTotal > 0) {
+                    feedbackCurrent = foundNfs.length;
+                    feedbackTotal = requestedNfTotal;
+                    feedbackNote = "NFs localizadas: " + foundNfs.length + " de " + requestedNfTotal + ".";
+                    if (missingNfs.length) {
+                        feedbackNote += " Pendentes: " + _nfListLabel(missingNfs, 6) + ".";
+                    }
+                } else if (phase === "processing" && requestedNfTotal > 0) {
+                    feedbackNote = "NFs localizadas: " + foundNfs.length + " de " + requestedNfTotal + ".";
+                    if (missingNfs.length) {
+                        feedbackNote += " Nao localizadas: " + _nfListLabel(missingNfs, 6) + ".";
+                    }
+                }
                 _setNfRecoveryFeedback({
-                    kind: total > 0 ? "active" : "loading",
-                    current: current,
-                    total: total,
+                    kind: feedbackTotal > 0 ? "active" : "loading",
+                    current: feedbackCurrent,
+                    total: feedbackTotal,
                     title: phase === "processing" ? "Lendo e-mails no Botana" : "Buscando e-mails no Botana",
-                    note: total > 0 ? "Recuperação em andamento para as NFs selecionadas." : "Preparando a recuperação no Botana."
+                    note: feedbackNote
                 });
                 return;
             }
@@ -2508,9 +2652,25 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                     var launched = Math.max(0, Number(action.launched || 0));
                     var duplicates = Math.max(0, Number(action.duplicates || 0));
                     var matched = Math.max(0, Number(action.matched || 0));
+                    var requested = Math.max(0, Number(action.requested_nf_count || 0));
+                    var found = _nfList(action.found_nf_numbers);
+                    var missing = _nfList(action.missing_nf_numbers);
                     var msg = _normalizeUiText(String(action.message || ""));
                     if (msg) {
                         return msg;
+                    }
+                    if (requested > 0 && missing.length) {
+                        var base = "Recuperação parcial: " + found.length + " de " + requested + " NF(s) localizadas.";
+                        if (launched > 0) {
+                            base += launched === 1
+                                ? " O Botana adicionou 1 lançamento novo na planilha."
+                                : (" O Botana adicionou " + launched + " lançamentos novos na planilha.");
+                        } else if (found.length > 0 && duplicates > 0) {
+                            base += " As NFs localizadas já estavam lançadas na planilha.";
+                        } else if (found.length > 0) {
+                            base += " O Botana encontrou os e-mails, mas nada novo foi lançado na planilha.";
+                        }
+                        return base + " Não localizadas: " + _nfListLabel(missing, 6) + ".";
                     }
                     if (launched > 0) {
                         return launched === 1
@@ -2749,8 +2909,10 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         }
 
         const btn = document.getElementById("btn-gerar-relatorio");
+        const csvBtn = document.getElementById("btn-baixar-csv");
         btn.innerText = "Buscando...";
         btn.disabled = true;
+        if (csvBtn) csvBtn.disabled = true;
         _mergeDevlogState({
             lastAction: "Gerar diagnóstico de planilha",
             lastRoute: "/botana/api/relatorio-nfs?" + queryParams.toString(),
@@ -2821,10 +2983,10 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                 tbody.appendChild(tr);
             }
             container.style.display = "block";
-            document.getElementById("btn-baixar-csv").style.display = "inline-block";
+            document.getElementById("btn-baixar-csv").disabled = false;
         } else {
             container.style.display = "none";
-            document.getElementById("btn-baixar-csv").style.display = "none";
+            document.getElementById("btn-baixar-csv").disabled = true;
         }
         devlogPush(
             "Diagnóstico",
