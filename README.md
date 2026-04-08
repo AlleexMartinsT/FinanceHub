@@ -51,6 +51,7 @@ What bootstrap does:
 - Clones/updates Hub into `C:\FinanceHub`.
 - Creates virtual environment (`.venv`).
 - Starts the Hub with `run_hub.bat`.
+- The bootstrap console now uses a guided HUD-style output, with environment summary, visible steps, and a final next-actions block.
 
 At first backend startup, the Hub can also:
 
