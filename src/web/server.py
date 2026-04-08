@@ -1222,8 +1222,19 @@ def _base_styles() -> str:
       justify-self:center;
       max-width:240px;
     }
+    #btn-gerar-relatorio{
+      grid-column:1/-1;
+      width:min(100%,260px);
+    }
     #nf-faltantes-card{padding:24px}
-    #nf-faltantes-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin-top:16px}
+    #nf-faltantes-controls{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(240px,260px));
+      gap:12px;
+      align-items:end;
+      justify-content:center;
+      margin-top:16px;
+    }
     #nf-faltantes-controls > *{min-width:0}
     #nf-faltantes-controls select,#nf-faltantes-controls input,#nf-faltantes-controls button{width:100%;box-sizing:border-box}
     #nf-faltantes-actions{display:none;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:14px;padding:14px 16px;border:1px solid #d9d0c5;border-radius:16px;background:#fff8ee}
@@ -1275,7 +1286,7 @@ def _base_styles() -> str:
       grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);
       align-items:center;
       gap:8px;
-      width:min(100%,560px);
+      width:min(100%,568px);
       justify-self:center;
     }
     #div-nfs input{text-align:center}
@@ -1614,7 +1625,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             <span>até</span>
             <input type="number" id="input-nf-fim" placeholder="Até NF Ex: 50000">
         </div>
-        <button id="btn-gerar-relatorio" class="btn-secondary" onclick="gerarRelatorio()">Verificar Faltantes</button>
+        <button id="btn-gerar-relatorio" class="btn-secondary" onclick="gerarRelatorio()">Verificar</button>
         <button id="btn-baixar-csv" class="btn-neutral" onclick="baixarCSV()" style="display: none;">Baixar CSV</button>
       </div>
       <div id="resumo-container"></div>
@@ -1669,6 +1680,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     let _nfRecoveryPollTimer = null;
     let _nfRecoveryPollAttempts = 0;
     let _nfRecoverySeenAction = false;
+    let _botanaLoginWindow = null;
+    let _botanaAuthPollTimer = null;
 
     function _normalizeUiText(value) {
         var text = String(value || "");
@@ -1717,8 +1730,50 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             || msg.indexOf("sem permissao") !== -1;
     }
 
+    function _stopBotanaAuthPolling() {
+        if (_botanaAuthPollTimer) {
+            clearInterval(_botanaAuthPollTimer);
+            _botanaAuthPollTimer = null;
+        }
+    }
+
+    async function _pollBotanaAuthState() {
+        try {
+            var res = await fetch("/botana/api/state");
+            var data = await res.json();
+            var auth = (data && data.auth) || {};
+            var user = String(auth.user || "").trim();
+            if (user) {
+                fecharLoginBotana();
+                _setNfRecoveryFeedback({
+                    kind: "success",
+                    title: "Login confirmado",
+                    note: "O Botana validou a autenticação. Agora você já pode recuperar as NFs."
+                });
+                return;
+            }
+        } catch (err) {
+        }
+        try {
+            if (_botanaLoginWindow && _botanaLoginWindow.closed) {
+                _stopBotanaAuthPolling();
+                _botanaLoginWindow = null;
+            }
+        } catch (err) {
+        }
+    }
+
+    function _startBotanaAuthPolling() {
+        _stopBotanaAuthPolling();
+        _botanaAuthPollTimer = setInterval(function() {
+            _pollBotanaAuthState();
+        }, 1500);
+        _pollBotanaAuthState();
+    }
+
     function abrirLoginBotana() {
-        window.open("/botana/login", "botana-login", "width=720,height=840,resizable=yes,scrollbars=yes");
+        _botanaLoginWindow = window.open("/botana/login", "botana-login", "width=720,height=840,resizable=yes,scrollbars=yes");
+        _startBotanaAuthPolling();
     }
 
     function fecharLoginBotana() {
@@ -1726,6 +1781,14 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         if (!el) return;
         el.classList.remove("show");
         el.setAttribute("aria-hidden", "true");
+        _stopBotanaAuthPolling();
+        try {
+            if (_botanaLoginWindow && !_botanaLoginWindow.closed) {
+                _botanaLoginWindow.close();
+            }
+        } catch (err) {
+        }
+        _botanaLoginWindow = null;
     }
 
     function mostrarLoginBotana(message) {
@@ -1735,6 +1798,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         msgEl.textContent = _normalizeUiText(message || "Você precisa entrar no Botana antes de iniciar essa recuperação.");
         el.classList.add("show");
         el.setAttribute("aria-hidden", "false");
+        _startBotanaAuthPolling();
     }
 
     function _nfCheckboxes() {
@@ -2065,7 +2129,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             })
             .catch(function(err) { alert("Erro de rede: " + err); })
             .finally(function() {
-                btn.innerText = "Verificar Faltantes";
+                btn.innerText = "Verificar";
                 btn.disabled = false;
             });
     }

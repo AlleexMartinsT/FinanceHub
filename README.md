@@ -132,8 +132,11 @@ Examples:
 - In that same panel, the recovery action now uses the shorter button label `Recuperar NFs`.
 - After sending selected missing NFs to Botana recovery, the Hub now shows a compact loading/progress bar instead of a long status sentence.
 - If Botana answers with an authentication error during that recovery flow, the Hub now normalizes the message text and opens a login popup instead of only showing a plain warning.
+- That login popup now polls Botana auth state and closes itself automatically once the login is actually confirmed.
 - The Hub desktop layout now uses a slightly wider content container and less compressed summary cards, so helper texts stay on one line more often without stretching the page edge to edge.
 - The `Manutenção Guiada` and `Diagnóstico de Planilha` cards now center their explanatory text, and the `Por Range de NF` inputs move to a dedicated row so the typed numbers stay easier to read.
+- In `Diagnóstico de Planilha`, the top two filters now share the same centered column width used by the NF range row, so the whole block stays visually aligned.
+- The main action button in `Diagnóstico de Planilha` is now centered on its own row and uses the shorter label `Verificar`.
 
 ## Configuration File
 
