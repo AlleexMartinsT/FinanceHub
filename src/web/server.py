@@ -1622,16 +1622,75 @@ def _base_styles() -> str:
       white-space:pre-wrap;
       word-break:break-word;
     }
-    .devlog-actions{
+    .devlog-json-wrap{
+      position:relative;
       margin-top:18px;
-      display:flex;
-      justify-content:center;
-      gap:12px;
-      flex-wrap:wrap;
     }
-    .devlog-actions button{
-      width:auto;
-      min-width:180px;
+    .devlog-json-wrap .devlog-json{
+      margin-top:0;
+      padding-top:50px;
+    }
+    .devlog-copy-btn{
+      position:absolute;
+      top:12px;
+      right:12px;
+      width:34px;
+      height:34px;
+      padding:0;
+      border-radius:10px;
+      border:1px solid rgba(156,218,248,.18);
+      background:rgba(20,28,44,.88);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:none;
+    }
+    .devlog-copy-btn:hover{
+      background:rgba(37,52,78,.96);
+      border-color:rgba(156,218,248,.34);
+    }
+    .devlog-copy-btn.copied{
+      background:rgba(32,76,54,.96);
+      border-color:rgba(116,211,154,.55);
+    }
+    .devlog-copy-icon{
+      position:relative;
+      width:18px;
+      height:18px;
+      display:block;
+    }
+    .devlog-copy-icon::before,
+    .devlog-copy-icon::after{
+      content:"";
+      position:absolute;
+      border:1.8px solid #d8e7ff;
+      border-radius:3px;
+      background:transparent;
+      transition:transform .18s ease, border-color .18s ease;
+    }
+    .devlog-copy-icon::before{
+      width:10px;
+      height:12px;
+      top:1px;
+      left:6px;
+      opacity:.75;
+    }
+    .devlog-copy-icon::after{
+      width:10px;
+      height:12px;
+      top:5px;
+      left:2px;
+      background:rgba(15,23,36,.42);
+    }
+    .devlog-copy-btn.copied .devlog-copy-icon::before,
+    .devlog-copy-btn.copied .devlog-copy-icon::after{
+      border-color:#9ff0bd;
+    }
+    .devlog-copy-btn.copied .devlog-copy-icon::before{
+      transform:translate(1px,-1px);
+    }
+    .devlog-copy-btn.copied .devlog-copy-icon::after{
+      transform:translate(-1px,1px);
     }
     @media (max-width:760px){
       body{padding:14px}
@@ -1990,10 +2049,12 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
               <span>Próxima checagem do Hub</span>
             </div>
           </div>
-          <div class="devlog-actions">
-            <button id="devlog-copy-btn" type="button" class="btn-neutral" onclick="copyDevlog()">Copiar rápido</button>
+          <div class="devlog-json-wrap">
+            <button id="devlog-copy-btn" type="button" class="devlog-copy-btn" onclick="copyDevlog()" title="Copiar devlog" aria-label="Copiar devlog">
+              <span class="devlog-copy-icon" aria-hidden="true"></span>
+            </button>
+            <div class="devlog-json" id="devlog-snapshot">Aguardando eventos da página.</div>
           </div>
-          <div class="devlog-json" id="devlog-snapshot">Aguardando eventos da página.</div>
         </section>
         <div class="devlog-columns">
           <section class="devlog-box">
@@ -2154,7 +2215,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 
     async function copyDevlog() {
         var btn = document.getElementById("devlog-copy-btn");
-        var original = btn ? btn.textContent : "";
+        var originalTitle = btn ? (btn.getAttribute("data-default-title") || btn.getAttribute("title") || "Copiar devlog") : "Copiar devlog";
         var snapshot = document.getElementById("devlog-snapshot");
         var frontLines = _devlogEntries.map(function(item) {
             return "[" + item.at + "] [" + item.source + "] " + item.title + (item.detail ? (" - " + item.detail) : "");
@@ -2186,9 +2247,17 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
                 document.body.removeChild(area);
             }
             if (btn) {
-                btn.textContent = "Copiado";
-                setTimeout(function() {
-                    btn.textContent = original || "Copiar rápido";
+                if (btn._copyTimer) {
+                    clearTimeout(btn._copyTimer);
+                }
+                btn.classList.add("copied");
+                btn.setAttribute("title", "Copiado");
+                btn.setAttribute("aria-label", "Copiado");
+                btn._copyTimer = setTimeout(function() {
+                    btn.classList.remove("copied");
+                    btn.setAttribute("title", originalTitle);
+                    btn.setAttribute("aria-label", originalTitle);
+                    btn._copyTimer = null;
                 }, 1600);
             }
             devlogPush("Devlog", "Copia concluida", "O Hub copiou o snapshot e os eventos atuais.");

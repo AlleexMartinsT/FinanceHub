@@ -134,11 +134,11 @@ Examples:
 - When Botana finishes that recovery, the Hub now distinguishes between `email found`, `already launched`, and `actually added to the sheet`, instead of always showing a generic success message.
 - If Botana had to trust attachments/XML because the email subject disagreed with the NF in the attachments, the Hub now opens a warning popup instead of only showing a plain `added to sheet` conclusion.
 - The Hub home now includes a `Devlog` tab with front-end events, the latest Hub tail log, and a live snapshot of the current page flow so operational issues can be described with exact steps and outcomes.
-- The `Devlog` tab now includes a quick copy button that copies the current snapshot, front-end events, and recent Hub events in one step.
+- The `Devlog` tab now includes a copy icon overlaid on the snapshot block, in a code-style pattern, to copy the current snapshot, front-end events, and recent Hub events in one step.
 - The `Devlog` countdown for the next Hub check now ticks locally every second between server polls instead of jumping several seconds at a time.
 - If Botana answers with an authentication error during that recovery flow, the Hub now normalizes the message text and opens a login popup instead of only showing a plain warning.
 - That login popup now polls Botana auth state and closes itself automatically once the login is actually confirmed.
-- The Botana login popup now opens in a reduced `popup` mode, so it focuses on authentication instead of showing the extra Hub back button.
+- The Botana login popup now opens in a reduced `popup` mode, so it focuses on authentication, hides the extra Hub back button, and closes after successful login instead of redirecting into the full Botana page.
 - The Hub desktop layout now uses a slightly wider content container and less compressed summary cards, so helper texts stay on one line more often without stretching the page edge to edge.
 - The `Manutenção Guiada` and `Verificar NFs faltantes` cards now use independent heights, so one card no longer stretches the other.
 - During `Recuperar NFs`, the Hub now mirrors Botana's real NF count in progress and completion messages, including when only part of the selected NF list was found.
