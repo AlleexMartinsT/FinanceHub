@@ -15,18 +15,34 @@ class AutoUpdater:
         interval_minutes: int = 5,
         remote: str = "origin",
         branch: str = "main",
+        event_callback=None,
     ):
         self.repo_dir = Path(repo_dir).resolve()
         self.enabled = bool(enabled)
         self.interval_minutes = max(1, int(interval_minutes))
         self.remote = (remote or "origin").strip()
         self.branch = (branch or "main").strip()
+        self._event_callback = event_callback
         self._stop = threading.Event()
         self._wake = threading.Event()
         self._restart_requested = threading.Event()
         self._thread = None
         self._checked_env = False
         self._available = False
+        self._next_check_at = 0.0
+
+    def _emit(self, message: str) -> None:
+        msg = str(message or "").strip()
+        if not msg:
+            return
+        callback = self._event_callback
+        if callable(callback):
+            try:
+                callback(msg)
+                return
+            except Exception:
+                pass
+        print(msg)
 
     def _check_env(self) -> bool:
         if self._checked_env:
@@ -36,11 +52,11 @@ class AutoUpdater:
             self._available = False
             return False
         if shutil.which("git") is None:
-            print("[Hub Updater] Git nao encontrado. Auto-update desativado")
+            self._emit("[Hub Updater] Git nao encontrado. Auto-update desativado")
             self._available = False
             return False
         if not (self.repo_dir / ".git").exists():
-            print("[Hub Updater] Repo git nao encontrado no HUB. Auto-update desativado")
+            self._emit("[Hub Updater] Repo git nao encontrado no HUB. Auto-update desativado")
             self._available = False
             return False
         self._available = True
@@ -73,7 +89,7 @@ class AutoUpdater:
         code, out = self._run_git("fetch", self.remote, self.branch)
         if code != 0:
             if out:
-                print(f"[Hub Updater] Falha no fetch: {out}")
+                self._emit(f"[Hub Updater] Falha no fetch: {out}")
             return
 
         local_head = self._head()
@@ -81,30 +97,34 @@ class AutoUpdater:
         if not local_head or not remote_head or local_head == remote_head:
             return
 
-        print(f"[Hub Updater] Nova versao detectada ({local_head[:7]} -> {remote_head[:7]})")
+        self._emit(f"[Hub Updater] Nova versao detectada ({local_head[:7]} -> {remote_head[:7]})")
         code, out = self._run_git("pull", "--ff-only", self.remote, self.branch)
         if code != 0:
             if out:
-                print(f"[Hub Updater] Falha no pull: {out}")
+                self._emit(f"[Hub Updater] Falha no pull: {out}")
             return
 
         new_head = self._head()
         if new_head and new_head != local_head:
-            print(f"[Hub Updater] Atualizacao aplicada para {new_head[:7]}. Reinicio solicitado")
+            self._emit(f"[Hub Updater] Atualizacao aplicada para {new_head[:7]}. Reinicio solicitado")
             self._restart_requested.set()
 
     def _loop(self):
-        print(
+        self._emit(
             "[Hub Updater] Ativo: "
             f"repo={self.repo_dir} remote={self.remote} branch={self.branch} "
             f"intervalo={self.interval_minutes}min"
         )
+        self._next_check_at = time.time()
         while not self._stop.is_set():
-            self._wake.wait(timeout=self.interval_minutes * 60)
+            timeout = max(0.0, self._next_check_at - time.time())
+            self._wake.wait(timeout=timeout)
             if self._stop.is_set():
+                self._next_check_at = 0.0
                 return
             self._wake.clear()
             self._update_once()
+            self._next_check_at = time.time() + (self.interval_minutes * 60)
 
     def start(self):
         if not self._check_env():
@@ -119,13 +139,15 @@ class AutoUpdater:
     def stop(self):
         self._stop.set()
         self._wake.set()
+        self._next_check_at = 0.0
 
     def trigger_check(self, reason: str = "manual") -> bool:
         if not self._check_env():
             return False
+        self._next_check_at = time.time()
         self._wake.set()
         try:
-            print(f"[Hub Updater] Checagem imediata solicitada ({reason})")
+            self._emit(f"[Hub Updater] Checagem imediata solicitada ({reason})")
         except Exception:
             pass
         return True
@@ -135,3 +157,16 @@ class AutoUpdater:
             self._restart_requested.clear()
             return True
         return False
+
+    def get_console_state(self) -> dict:
+        next_at = float(self._next_check_at or 0.0)
+        remaining = max(0, int(next_at - time.time())) if next_at > 0 else 0
+        return {
+            "enabled": bool(self.enabled),
+            "available": bool(self._available),
+            "interval_minutes": int(self.interval_minutes),
+            "next_check_at": next_at,
+            "next_check_in_seconds": remaining,
+            "remote": self.remote,
+            "branch": self.branch,
+        }

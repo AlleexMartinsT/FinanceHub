@@ -253,6 +253,7 @@ Runtime logs on server:
 - `C:\FinanceHub\logs\financeiro_principal_stderr.log`
 - `C:\FinanceHub\logs\botana_principal_stdout.log`
 - `C:\FinanceHub\logs\botana_principal_stderr.log`
+- The Hub server CMD now keeps a static ASCII HUD on screen, with runtime summary, instance map, recent events, and countdowns for the next Hub and instance update checks.
 
 ## Notes
 

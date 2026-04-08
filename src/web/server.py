@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 import math
+import textwrap
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -160,12 +161,14 @@ class HubHttpServer:
         runtime: InstanceRuntimeManager,
         settings: AppSettingsStore,
         updater=None,
+        console_event_callback=None,
     ):
         self.host = host
         self.port = port
         self.runtime = runtime
         self.settings = settings
         self.updater = updater
+        self._console_event_callback = console_event_callback
         self.httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._procs: dict[str, subprocess.Popen] = {}
@@ -173,6 +176,7 @@ class HubHttpServer:
         self._inst_updater_thread: threading.Thread | None = None
         self._inst_updater_stop = threading.Event()
         self._inst_updater_interval_minutes = 5
+        self._inst_updater_next_at = 0.0
         self._inst_updater_git_missing_logged = False
         self._instance_update_restarts = 0
         logs_dir = Path(self.settings.base_dir) / "logs"
@@ -181,13 +185,76 @@ class HubHttpServer:
         self._debug_log_path = logs_dir / "instance_debug.log"
 
     def _diag(self, message: str):
-        line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}"
-        print(line)
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        line = f"[{stamp}] {message}"
         try:
             with self._debug_log_path.open("a", encoding="utf-8") as f:
                 f.write(line + "\n")
         except Exception:
             pass
+        callback = self._console_event_callback
+        if callable(callback):
+            try:
+                callback(line)
+                return
+            except Exception:
+                pass
+        console_block = self._runtime_console_hud(message=message, stamp=stamp)
+        print(console_block if console_block else line)
+
+    @staticmethod
+    def _ascii_box(title: str, rows: list[str], width: int = 72) -> str:
+        inner = max(24, int(width) - 4)
+        top = "+" + "-" * (inner + 2) + "+"
+        out = [top, f"| {str(title or '').strip()[:inner].ljust(inner)} |", top]
+        for raw in rows or []:
+            chunks = textwrap.wrap(str(raw or "").strip(), width=inner) or [""]
+            for chunk in chunks:
+                out.append(f"| {chunk.ljust(inner)} |")
+        out.append(top)
+        return "\n".join(out)
+
+    def _runtime_console_hud(self, message: str, stamp: str) -> str | None:
+        msg = str(message or "").strip()
+        if not msg:
+            return None
+
+        if msg.startswith("[Hub] Atualizacoes de instancias nesta sessao:"):
+            count = msg.rsplit(":", 1)[-1].strip() or "-"
+            return self._ascii_box(
+                "HUB INSTANCE UPDATE SESSION",
+                [
+                    f"Time    : {stamp}",
+                    f"Updates : {count}",
+                ],
+            )
+
+        match = re.match(r"^\[Instance Updater\]\s+(.+?):\s+reiniciado com a nova versao$", msg)
+        if match:
+            inst_name = match.group(1).strip() or "-"
+            return self._ascii_box(
+                "INSTANCE RESTARTED",
+                [
+                    f"Time     : {stamp}",
+                    f"Instance : {inst_name}",
+                    "Status   : restarted with the new version",
+                    f"Session  : {self._instance_update_restarts} update(s) in this CMD",
+                ],
+            )
+
+        match = re.match(r"^\[Warmup\]\s+Backend ficou online:\s+(.+)$", msg)
+        if match:
+            inst_name = match.group(1).strip() or "-"
+            return self._ascii_box(
+                "BACKEND ONLINE",
+                [
+                    f"Time     : {stamp}",
+                    f"Instance : {inst_name}",
+                    "Status   : backend is responding",
+                ],
+            )
+
+        return None
 
     @staticmethod
     def _clear_console() -> None:
@@ -393,8 +460,9 @@ class HubHttpServer:
         restarted = self._restart_managed_instance(inst.instance_id, str(app_dir), list(inst.start_args or ["main.py"]))
         if restarted:
             self._instance_update_restarts += 1
-            self._clear_console()
-            print(
+            if not callable(self._console_event_callback):
+                self._clear_console()
+            self._diag(
                 "[Hub] Atualizacoes de instancias nesta sessao: "
                 f"{self._instance_update_restarts}"
             )
@@ -407,15 +475,20 @@ class HubHttpServer:
     def _instance_updater_loop(self) -> None:
         self._diag(f"[Instance Updater] Ativo: intervalo={self._inst_updater_interval_minutes}min")
         # Primeira checagem imediata, igual comportamento esperado de startup.
+        self._inst_updater_next_at = time.time()
         self._run_instance_update_cycle()
+        self._inst_updater_next_at = time.time() + (max(1, self._inst_updater_interval_minutes) * 60)
         while not self._inst_updater_stop.is_set():
             for _ in range(max(1, self._inst_updater_interval_minutes) * 60):
                 if self._inst_updater_stop.is_set():
+                    self._inst_updater_next_at = 0.0
                     return
                 time.sleep(1)
             if self._inst_updater_stop.is_set():
+                self._inst_updater_next_at = 0.0
                 return
             self._run_instance_update_cycle()
+            self._inst_updater_next_at = time.time() + (max(1, self._inst_updater_interval_minutes) * 60)
 
     def _run_instance_update_cycle(self) -> None:
         if shutil.which("git") is None:
@@ -436,6 +509,7 @@ class HubHttpServer:
         self._inst_updater_stop.clear()
         self._inst_updater_interval_minutes = max(1, int(interval_minutes or 5))
         if not enabled:
+            self._inst_updater_next_at = 0.0
             return
         if self._inst_updater_thread and self._inst_updater_thread.is_alive():
             return
@@ -736,6 +810,7 @@ class HubHttpServer:
 
     def stop(self):
         self._inst_updater_stop.set()
+        self._inst_updater_next_at = 0.0
         if self.httpd:
             self.httpd.shutdown()
             self.httpd.server_close()
@@ -751,6 +826,21 @@ class HubHttpServer:
                         except Exception:
                             pass
             self._procs.clear()
+
+    def get_console_state(self) -> dict:
+        next_at = float(self._inst_updater_next_at or 0.0)
+        remaining = max(0, int(next_at - time.time())) if next_at > 0 else 0
+        return {
+            "host": self.host,
+            "port": int(self.port),
+            "instance_update_restarts": int(self._instance_update_restarts),
+            "instance_updater_interval_minutes": int(max(1, self._inst_updater_interval_minutes)),
+            "next_instance_check_at": next_at,
+            "next_instance_check_in_seconds": remaining,
+            "instance_updater_running": bool(
+                self._inst_updater_thread and self._inst_updater_thread.is_alive()
+            ),
+        }
 
 
 def _base_styles() -> str:
