@@ -1871,6 +1871,75 @@ def _render_home_html(instances: list[InstanceConfig], tabulator_preview: bool =
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" />
   <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>"""
+    preview_css = (
+        """
+    body.preview-tabulator .hero-panel,
+    body.preview-tabulator .hub-panel,
+    body.preview-tabulator .view-tabs,
+    body.preview-tabulator #view-devlog,
+    body.preview-tabulator .actions-panel > :first-child{
+      display:none;
+    }
+    body.preview-tabulator .actions-panel{
+      grid-template-columns:minmax(0,1fr);
+    }
+    body.preview-tabulator .container{
+      max-width:1120px;
+    }
+    .preview-header{
+      margin-bottom:22px;
+      padding:22px 24px;
+      border:1px solid #bfd5ee;
+      border-radius:24px;
+      background:linear-gradient(135deg,#eef6ff 0%,#f9fcff 100%);
+      box-shadow:0 18px 42px rgba(23,111,229,.08);
+      text-align:center;
+    }
+    .preview-kicker{
+      margin:0;
+      color:#176fe5;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .preview-header h2{
+      margin:10px 0 0;
+      font-size:34px;
+      line-height:1.08;
+      color:#1f2c3b;
+    }
+    .preview-header p{
+      margin:12px auto 0;
+      max-width:760px;
+      color:#5d6b7b;
+      font-size:15px;
+      line-height:1.65;
+    }
+    .preview-header a{
+      display:inline-flex;
+      margin-top:16px;
+      padding:10px 16px;
+      border-radius:999px;
+      border:1px solid #bfd5ee;
+      background:#fff;
+      color:#176fe5;
+      font-weight:800;
+      text-decoration:none;
+    }
+    .preview-header a:hover{
+      background:#176fe5;
+      border-color:#176fe5;
+      color:#fff;
+    }
+    body.preview-tabulator #nf-faltantes-card{
+      max-width:980px;
+      margin:0 auto;
+    }
+"""
+        if tabulator_preview
+        else ""
+    )
     tabulator_flag = "true" if tabulator_preview else "false"
     preview_banner = (
         '<div class="tool-helper" style="margin-bottom:12px;background:#eef6ff;border-color:#bfd5ee;">'
@@ -1884,6 +1953,19 @@ def _render_home_html(instances: list[InstanceConfig], tabulator_preview: bool =
         if tabulator_preview
         else ""
     )
+    body_class = ' class="preview-tabulator"' if tabulator_preview else ""
+    preview_header = (
+        """
+    <section class="preview-header">
+      <p class="preview-kicker">Preview isolado</p>
+      <h2>Tabulator para Verificar NFs faltantes</h2>
+      <p>Esta rota existe só para comparar a grade dinâmica sem substituir a home do Hub. Aqui você testa ordenação, filtro e paginação local no mesmo fluxo de diagnóstico.</p>
+      <a href="/">Voltar para a home atual</a>
+    </section>
+"""
+        if tabulator_preview
+        else ""
+    )
     return """<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -1892,11 +1974,12 @@ def _render_home_html(instances: list[InstanceConfig], tabulator_preview: bool =
   <title>FinanceAnaHub</title>
 """ + tabulator_head + """
   <style>
-""" + _base_styles() + """
+""" + _base_styles() + preview_css + """
   </style>
 </head>
-<body>
+<body""" + body_class + """>
   <div class="container">
+    """ + preview_header + """
     <section class="hero-panel">
       <div class="hero-copy">
         <span class="eyebrow">CMD do Servidor • HUD Central</span>

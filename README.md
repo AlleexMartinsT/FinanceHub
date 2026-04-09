@@ -149,7 +149,7 @@ Examples:
 - The NF range inputs in `Diagnóstico de Planilha` no longer show suggestion placeholders inside the fields.
 - In `Diagnóstico de Planilha`, the CSV export action now uses an icon-only button with tooltip instead of the full `Baixar CSV` label.
 - In `Diagnóstico de Planilha`, that CSV icon now stays fixed beside `Verificar` and is only enabled when there is data to export.
-- The Hub now has an isolated preview route at `/preview/tabulator` to test the `Verificar NFs faltantes` grid with Tabulator, including local pagination, sortable columns, and a column filter, while the main home route keeps the existing HTML table unchanged.
+- The Hub now has a dedicated preview page at `/preview/tabulator` to test the `Verificar NFs faltantes` grid with Tabulator, including local pagination, sortable columns, and a column filter, while the main home route keeps the existing HTML table unchanged.
 
 ## Configuration File
 
