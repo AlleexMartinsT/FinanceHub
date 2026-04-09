@@ -71,11 +71,11 @@ def _collect_sync_rows(config) -> list[dict]:
 
 def _format_countdown(total_seconds: int) -> str:
     seconds = max(0, int(total_seconds or 0))
-    hours, rem = divmod(seconds, 3600)
-    minutes, secs = divmod(rem, 60)
+    minutes_total = seconds // 60
+    hours, minutes = divmod(minutes_total, 60)
     if hours:
-        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
+        return f"{hours:02d}h{minutes:02d}m"
+    return f"{minutes:02d}m"
 
 
 def _format_next_check(timestamp: float) -> str:
@@ -108,6 +108,7 @@ class ConsoleHud:
         self._events = deque(maxlen=10)
         self._lock = threading.Lock()
         self._supports_color = False
+        self._last_screen = ""
         self._enable_ansi_on_windows()
         self._supports_color = bool(getattr(sys.stdout, "isatty", lambda: False)())
 
@@ -169,9 +170,13 @@ class ConsoleHud:
         return "\n".join(out)
 
     def _render_screen(self, text: str) -> None:
+        normalized = str(text or "").rstrip() + "\n"
+        if normalized == self._last_screen:
+            return
         self.clear_console()
-        sys.stdout.write(text.rstrip() + "\n")
+        sys.stdout.write(normalized)
         sys.stdout.flush()
+        self._last_screen = normalized
 
     def render(
         self,
@@ -184,7 +189,7 @@ class ConsoleHud:
         server_state: dict,
     ) -> None:
         width = max(96, min(shutil.get_terminal_size((120, 40)).columns, 140))
-        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        now = datetime.now().strftime("%d/%m/%Y %H:%M")
         hub_url = f"http://{server_state.get('host', config.panel_host)}:{server_state.get('port', config.panel_port)}"
 
         header_rows = [
