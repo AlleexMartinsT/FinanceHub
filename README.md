@@ -274,7 +274,7 @@ Runtime logs on server:
 - `C:\FinanceHub\logs\financeiro_principal_stderr.log`
 - `C:\FinanceHub\logs\botana_principal_stdout.log`
 - `C:\FinanceHub\logs\botana_principal_stderr.log`
-- The Hub server CMD now keeps a static ASCII HUD on screen, with runtime summary, instance map, recent events, and countdowns for the next Hub and instance update checks.
+- The Hub server CMD now keeps a static ASCII HUD on screen, with a real console clear before each redraw, colored sections, a lighter layout, and countdowns for the next Hub and instance update checks so the CMD does not accumulate old blocks while the timers run.
 - Inside that same CMD HUD, you can trigger instant checks with keyboard shortcuts: `U` for Hub update now, `I` for instance update now, and `A` for both at once.
 
 ## Notes

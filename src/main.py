@@ -107,7 +107,9 @@ class ConsoleHud:
     def __init__(self):
         self._events = deque(maxlen=10)
         self._lock = threading.Lock()
+        self._supports_color = False
         self._enable_ansi_on_windows()
+        self._supports_color = bool(getattr(sys.stdout, "isatty", lambda: False)())
 
     @staticmethod
     def _enable_ansi_on_windows() -> None:
@@ -138,6 +140,17 @@ class ConsoleHud:
         with self._lock:
             return list(self._events)
 
+    def clear_console(self) -> None:
+        try:
+            os.system("cls" if os.name == "nt" else "clear")
+        except Exception:
+            pass
+
+    def _paint(self, text: str, color: str) -> str:
+        if not self._supports_color:
+            return text
+        return f"{color}{text}\x1b[0m"
+
     @staticmethod
     def _box(title: str, rows: list[str], width: int) -> str:
         inner = max(32, int(width) - 4)
@@ -155,9 +168,8 @@ class ConsoleHud:
         out.append(cap)
         return "\n".join(out)
 
-    @staticmethod
-    def _render_screen(text: str) -> None:
-        sys.stdout.write("\x1b[2J\x1b[H")
+    def _render_screen(self, text: str) -> None:
+        self.clear_console()
         sys.stdout.write(text.rstrip() + "\n")
         sys.stdout.flush()
 
@@ -174,7 +186,6 @@ class ConsoleHud:
         width = max(96, min(shutil.get_terminal_size((120, 40)).columns, 140))
         now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         hub_url = f"http://{server_state.get('host', config.panel_host)}:{server_state.get('port', config.panel_port)}"
-        recent_events = self._events_snapshot()[-8:]
 
         header_rows = [
             r"  ______ _                             _                  _   _       _     ",
@@ -223,23 +234,20 @@ class ConsoleHud:
         if not instance_rows:
             instance_rows.append("Nenhuma instancia configurada.")
 
-        event_rows = recent_events if recent_events else ["Aguardando eventos de runtime..."]
-
         footer_rows = [
             "Hook manual .......... POST /hub/api/update/check (token opcional em HUB_UPDATE_WEBHOOK_SECRET)",
             "Atalhos .............. U = Hub agora | I = instancias agora | A = ambos agora",
             "Ctrl+C ............... encerra o Hub",
-            "A tela e fixa: eventos entram aqui sem quebrar a HUD.",
+            "HUD enxuta ........... sem log corrido para manter a tela leve",
         ]
 
         screen = "\n\n".join(
             [
-                self._box("FINANCEANAHUB COMMAND HUD", header_rows, width),
-                self._box("RUNTIME SUMMARY", summary_rows, width),
-                self._box("NEXT UPDATE CHECKS", check_rows, width),
-                self._box("INSTANCE MAP", instance_rows, width),
-                self._box("RECENT EVENTS", event_rows, width),
-                self._box("OPERATIONS", footer_rows, width),
+                self._paint(self._box("FINANCEANAHUB COMMAND HUD", header_rows, width), "\x1b[38;5;45m"),
+                self._paint(self._box("RUNTIME SUMMARY", summary_rows, width), "\x1b[38;5;120m"),
+                self._paint(self._box("NEXT UPDATE CHECKS", check_rows, width), "\x1b[38;5;221m"),
+                self._paint(self._box("INSTANCE MAP", instance_rows, width), "\x1b[38;5;111m"),
+                self._paint(self._box("OPERATIONS", footer_rows, width), "\x1b[38;5;213m"),
             ]
         )
         self._render_screen(screen)
