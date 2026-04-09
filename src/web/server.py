@@ -758,6 +758,9 @@ class HubHttpServer:
                 if path == "/":
                     return _html_response(self, 200, _render_home_html(cfg.instances))
 
+                if path == "/preview/tabulator":
+                    return _html_response(self, 200, _render_home_html(cfg.instances, tabulator_preview=True))
+
                 if path == "/hub/api/instances":
                     return _json_response(self, 200, {"items": runtime.list()})
 
@@ -1356,6 +1359,77 @@ def _base_styles() -> str:
     .nf-progress-note{margin-top:8px;font-size:12px;line-height:1.45;color:#627080}
     #nf-faltantes-feedback.error .nf-progress-title,#nf-faltantes-feedback.error .nf-progress-count,#nf-faltantes-feedback.error .nf-progress-note{color:#7a1f1f}
     #nf-faltantes-feedback.success .nf-progress-title,#nf-faltantes-feedback.success .nf-progress-count,#nf-faltantes-feedback.success .nf-progress-note{color:#255133}
+    .tabulator-preview-note{
+      margin-top:10px;
+      font-size:12px;
+      color:#5e6d7d;
+      text-align:center;
+    }
+    .tabulator-hub-wrap{display:none}
+    .tabulator-hub-wrap.active{display:block}
+    #nf-faltantes-tabulator{
+      border:1px solid var(--line-soft);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fffdf9;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+    }
+    #nf-faltantes-legacy-table{width:100%}
+    #nf-faltantes-tabulator .tabulator{
+      border:none;
+      background:transparent;
+      font-size:14px;
+      color:#243140;
+    }
+    #nf-faltantes-tabulator .tabulator-header{
+      border-bottom:1px solid var(--line-soft);
+      background:#fff2e9;
+    }
+    #nf-faltantes-tabulator .tabulator-col,
+    #nf-faltantes-tabulator .tabulator-header .tabulator-col{
+      background:transparent;
+      border-right:1px solid #efe5d8;
+      color:#243140;
+      font-weight:800;
+    }
+    #nf-faltantes-tabulator .tabulator-row{
+      background:#fffdf9;
+      border-bottom:1px solid var(--line-soft);
+    }
+    #nf-faltantes-tabulator .tabulator-row:nth-child(even){
+      background:#fffcf8;
+    }
+    #nf-faltantes-tabulator .tabulator-row:hover,
+    #nf-faltantes-tabulator .tabulator-row.tabulator-selectable:hover{
+      background:#fff4ea;
+    }
+    #nf-faltantes-tabulator .tabulator-cell{
+      border-right:1px solid #f1e9df;
+      padding:11px 12px;
+    }
+    #nf-faltantes-tabulator .tabulator-footer{
+      border-top:1px solid var(--line-soft);
+      background:#fff8f1;
+      color:#5f6d7d;
+      font-size:12px;
+      font-weight:700;
+    }
+    #nf-faltantes-tabulator .tabulator-page{
+      border:1px solid #d9d0c5;
+      background:#fff;
+      color:#384658;
+    }
+    #nf-faltantes-tabulator .tabulator-page.active{
+      background:var(--hub);
+      color:#fff;
+      border-color:var(--hub);
+    }
+    .nf-tabulator-checkbox{
+      width:16px;
+      height:16px;
+      accent-color:var(--hub);
+      cursor:pointer;
+    }
     .auth-pop-overlay{position:fixed;inset:0;background:rgba(15,23,42,.48);display:none;align-items:center;justify-content:center;padding:18px;z-index:9999}
     .auth-pop-overlay.show{display:flex}
     .auth-pop-card{width:min(100%,460px);background:#fffdf9;border:1px solid #ddd4c8;border-radius:24px;box-shadow:0 24px 80px rgba(15,23,42,.18);padding:24px;text-align:center}
@@ -1729,7 +1803,7 @@ def _base_styles() -> str:
     """
 
 
-def _render_home_html(instances: list[InstanceConfig]) -> str:
+def _render_home_html(instances: list[InstanceConfig], tabulator_preview: bool = False) -> str:
     colors = ["#e08dc8", "#45c2ad", "#b4d15a", "#f1ad77", "#b98be2", "#5e8ad8"]
     slot_angles = [-90, -30, 30, 90, 150, 210]
     # fill to 6 spokes with placeholders for future modules
@@ -1791,12 +1865,32 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     metrics_active = str(len(routed_instances))
     metrics_botana = str(len(botana_instances))
     metrics_finance = str(len(finance_instances))
+    tabulator_head = ""
+    if tabulator_preview:
+        tabulator_head = """
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" />
+  <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>"""
+    tabulator_flag = "true" if tabulator_preview else "false"
+    preview_banner = (
+        '<div class="tool-helper" style="margin-bottom:12px;background:#eef6ff;border-color:#bfd5ee;">'
+        'Preview isolado com Tabulator. A rota principal continua usando a tabela atual.'
+        '</div>'
+        if tabulator_preview
+        else ""
+    )
+    tabulator_note = (
+        '<div class="tabulator-preview-note">Preview Tabulator: ordenação, filtro por coluna e paginação local no próprio resultado.</div>'
+        if tabulator_preview
+        else ""
+    )
     return """<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FinanceAnaHub</title>
+""" + tabulator_head + """
   <style>
 """ + _base_styles() + """
   </style>
@@ -1936,6 +2030,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
       </section>
 
       <section id="nf-faltantes-card" class="tool-card tool-card-secondary">
+        """ + preview_banner + """
         <div class="tool-head">
           <div>
             <p class="tool-kicker">Diagnóstico de Planilha</p>
@@ -1998,7 +2093,11 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         <div id="nf-feedback-note" class="nf-progress-note"></div>
       </div>
       <div id="tabela-container">
-        <table class="data-table">
+        <div id="nf-faltantes-tabulator-wrap" class="tabulator-hub-wrap">
+          <div id="nf-faltantes-tabulator"></div>
+          """ + tabulator_note + """
+        </div>
+        <table id="nf-faltantes-legacy-table" class="data-table">
             <thead>
                 <tr>
                     <th class="nf-col-select">Selecionar</th>
@@ -2109,6 +2208,7 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     </div>
   </div>
   <script>
+    const _TABULATOR_PREVIEW = """ + tabulator_flag + """;
     let dadosRelatorioAtual = {};
     let _nfRecoveryPollTimer = null;
     let _nfRecoveryPollAttempts = 0;
@@ -2122,6 +2222,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     let _devlogNextCheckRemaining = 0;
     let _devlogSecondTimer = null;
     let _recoveryWarningToken = "";
+    let _nfFaltantesTable = null;
+    let _nfFaltantesSelected = {};
     let _devlogState = {
         currentTab: "operations",
         lastAction: "",
@@ -2184,6 +2286,145 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    function _nfResultList() {
+        var raw = (dadosRelatorioAtual && Array.isArray(dadosRelatorioAtual.faltantes)) ? dadosRelatorioAtual.faltantes : [];
+        return raw.map(function(item) {
+            return String((item && item.NF) || "").trim();
+        }).filter(Boolean);
+    }
+
+    function _setNfSelecionada(nf, checked) {
+        var value = String(nf || "").trim();
+        if (!value) return;
+        if (checked) {
+            _nfFaltantesSelected[value] = true;
+        } else {
+            delete _nfFaltantesSelected[value];
+        }
+    }
+
+    function _resetNfSelecao() {
+        _nfFaltantesSelected = {};
+    }
+
+    function _toggleNfTableMode(tabulatorActive) {
+        var wrap = document.getElementById("nf-faltantes-tabulator-wrap");
+        var legacy = document.getElementById("nf-faltantes-legacy-table");
+        if (wrap) {
+            wrap.classList.toggle("active", !!tabulatorActive);
+        }
+        if (legacy) {
+            legacy.style.display = tabulatorActive ? "none" : "table";
+        }
+    }
+
+    function _buildNfTabulatorRows() {
+        var faltantes = (dadosRelatorioAtual && Array.isArray(dadosRelatorioAtual.faltantes)) ? dadosRelatorioAtual.faltantes : [];
+        return faltantes.map(function(item, idx) {
+            var nf = String((item && item.NF) || "").trim();
+            return {
+                rowId: nf || ("row-" + idx),
+                ordem: idx + 1,
+                NF: nf
+            };
+        });
+    }
+
+    function _nfCheckboxFormatter(cell) {
+        var nf = String((cell.getRow().getData() || {}).NF || "").trim();
+        return '<input class="nf-faltante-check nf-tabulator-checkbox" type="checkbox" value="' + _escapeHtml(nf) + '"' + (_nfFaltantesSelected[nf] ? ' checked' : '') + ' onclick="event.stopPropagation();" onchange="_toggleNfFaltanteSelection(this.value, this.checked)">';
+    }
+
+    function _ensureNfTabulator() {
+        if (!_TABULATOR_PREVIEW) {
+            return false;
+        }
+        if (typeof window.Tabulator !== "function") {
+            return false;
+        }
+        if (_nfFaltantesTable) {
+            return true;
+        }
+        var host = document.getElementById("nf-faltantes-tabulator");
+        if (!host) {
+            return false;
+        }
+        _nfFaltantesTable = new Tabulator(host, {
+            data: [],
+            layout: "fitColumns",
+            responsiveLayout: "collapse",
+            pagination: "local",
+            paginationSize: 8,
+            paginationCounter: "rows",
+            movableColumns: true,
+            placeholder: "Nenhuma NF faltante no recorte atual.",
+            columnHeaderVertAlign: "middle",
+            columns: [
+                {title: "Selecionar", field: "_select", headerSort: false, hozAlign: "center", headerHozAlign: "center", width: 118, formatter: _nfCheckboxFormatter},
+                {title: "#", field: "ordem", sorter: "number", hozAlign: "center", headerHozAlign: "center", width: 84},
+                {title: "NF Faltante", field: "NF", sorter: "number", headerFilter: "input", minWidth: 220, formatter: function(cell) {
+                    return '<span style="font-weight:800;color:#c0392b;">' + _escapeHtml(cell.getValue()) + '</span>';
+                }},
+            ],
+            rowClick: function(event, row) {
+                if (event && event.target && typeof event.target.closest === "function" && event.target.closest("input")) {
+                    return;
+                }
+                var nf = String((row.getData() || {}).NF || "").trim();
+                if (!nf) return;
+                var nextValue = !_nfFaltantesSelected[nf];
+                _setNfSelecionada(nf, nextValue);
+                if (typeof row.reformat === "function") {
+                    row.reformat();
+                } else {
+                    _nfFaltantesTable.redraw(true);
+                }
+                atualizarAcoesFaltantes();
+            },
+            renderComplete: function() {
+                atualizarAcoesFaltantes();
+            }
+        });
+        return true;
+    }
+
+    function _renderNfTabulator() {
+        if (!_ensureNfTabulator()) {
+            return false;
+        }
+        if (typeof _nfFaltantesTable.clearHeaderFilter === "function") {
+            _nfFaltantesTable.clearHeaderFilter();
+        }
+        if (typeof _nfFaltantesTable.clearSort === "function") {
+            _nfFaltantesTable.clearSort();
+        }
+        _nfFaltantesTable.setData(_buildNfTabulatorRows());
+        _toggleNfTableMode(true);
+        return true;
+    }
+
+    function _renderNfLegacyTable() {
+        var tbody = document.getElementById("tabela-corpo");
+        if (!tbody) return;
+        var faltantes = (dadosRelatorioAtual && Array.isArray(dadosRelatorioAtual.faltantes)) ? dadosRelatorioAtual.faltantes : [];
+        tbody.innerHTML = "";
+        for (var idx = 0; idx < faltantes.length; idx++) {
+            var tr = document.createElement("tr");
+            var nf = String((faltantes[idx] && faltantes[idx].NF) || "").trim();
+            tr.innerHTML =
+                '<td class="nf-select-cell" style="padding: 8px; border: 1px solid #ddd;"><input class="nf-faltante-check" type="checkbox" value="' + _escapeHtml(nf) + '" onchange="_toggleNfFaltanteSelection(this.value, this.checked)"></td>' +
+                '<td style="padding: 8px; border: 1px solid #ddd;">' + (idx + 1) + '</td>' +
+                '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #c0392b;">' + _escapeHtml(nf) + '</td>';
+            tbody.appendChild(tr);
+        }
+        _toggleNfTableMode(false);
+    }
+
+    function _toggleNfFaltanteSelection(nf, checked) {
+        _setNfSelecionada(nf, checked);
+        atualizarAcoesFaltantes();
     }
 
     function _nfList(value) {
@@ -2537,10 +2778,18 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     }
 
     function _nfCheckboxes() {
+        if (_nfFaltantesTable) {
+            return [];
+        }
         return Array.from(document.querySelectorAll(".nf-faltante-check"));
     }
 
     function _nfsFaltantesSelecionadas() {
+        if (_nfFaltantesTable) {
+            return _nfResultList().filter(function(nf) {
+                return !!_nfFaltantesSelected[nf];
+            });
+        }
         return _nfCheckboxes()
             .filter(function(el) { return !!el.checked; })
             .map(function(el) { return String(el.value || "").trim(); })
@@ -2820,7 +3069,14 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
 
     function toggleSelecionarTodasFaltantes(source) {
         var mark = !!(source && source.checked);
-        _nfCheckboxes().forEach(function(el) { el.checked = mark; });
+        if (_nfFaltantesTable) {
+            _nfResultList().forEach(function(nf) {
+                _setNfSelecionada(nf, mark);
+            });
+            _nfFaltantesTable.redraw(true);
+        } else {
+            _nfCheckboxes().forEach(function(el) { el.checked = mark; });
+        }
         devlogPush("Diagnóstico", mark ? "Selecionou todas as NFs faltantes" : "Limpou a seleção de NFs", "A lista de NFs faltantes foi atualizada em bloco.");
         atualizarAcoesFaltantes();
     }
@@ -3028,9 +3284,8 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
     function renderizarResultado() {
         var resumo = document.getElementById("resumo-container");
         var container = document.getElementById("tabela-container");
-        var tbody = document.getElementById("tabela-corpo");
         var d = dadosRelatorioAtual;
-        tbody.innerHTML = "";
+        _resetNfSelecao();
         _stopNfRecoveryPolling();
         _setNfRecoveryFeedback({ hidden: true });
 
@@ -3048,19 +3303,16 @@ def _render_home_html(instances: list[InstanceConfig]) -> str:
         resumo.style.display = "block";
 
         if (totalFaltante > 0) {
-            var faltantes = d.faltantes || [];
-            for (var idx = 0; idx < faltantes.length; idx++) {
-                var tr = document.createElement("tr");
-                var nf = String(faltantes[idx].NF || "").trim();
-                tr.innerHTML =
-                    '<td class="nf-select-cell" style="padding: 8px; border: 1px solid #ddd;"><input class="nf-faltante-check" type="checkbox" value="' + nf + '" onchange="atualizarAcoesFaltantes()"></td>' +
-                    '<td style="padding: 8px; border: 1px solid #ddd;">' + (idx + 1) + '</td>' +
-                    '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; color: #c0392b;">' + nf + '</td>';
-                tbody.appendChild(tr);
+            if (!_renderNfTabulator()) {
+                _renderNfLegacyTable();
             }
             container.style.display = "block";
             document.getElementById("btn-baixar-csv").disabled = false;
         } else {
+            if (_nfFaltantesTable) {
+                _nfFaltantesTable.clearData();
+            }
+            _toggleNfTableMode(!!(_TABULATOR_PREVIEW && _nfFaltantesTable));
             container.style.display = "none";
             document.getElementById("btn-baixar-csv").disabled = true;
         }
