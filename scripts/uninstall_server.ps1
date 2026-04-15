@@ -1,7 +1,7 @@
 param(
-  [string]$InstallDir = "C:\FinanceHub",
-  [string]$FinanceDir = "C:\FinanceBot",
-  [string]$BotanaDir = "C:\Botana",
+  [string]$InstallDir = "D:\FinanceAnaHub",
+  [string]$FinanceDir = "D:\financeiroAPP",
+  [string]$BotanaDir = "D:\Botana",
   [switch]$RemoveBackends,
   [switch]$RemoveFinance,
   [switch]$RemoveBotana,

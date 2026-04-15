@@ -48,7 +48,7 @@ What bootstrap does:
 
 - Checks `git`, `python`, and GitHub connectivity.
 - Tries auto-install for missing `git/python` using `winget`.
-- Clones/updates Hub into `C:\FinanceHub`.
+- Clones/updates Hub into `D:\FinanceAnaHub`.
 - Creates virtual environment (`.venv`).
 - Starts the Hub with `run_hub.bat`.
 - The bootstrap console now uses a guided HUD-style output, with environment summary, visible steps, and a final next-actions block.
@@ -61,14 +61,14 @@ At first backend startup, the Hub can also:
 
 ### Botana First-Run Notes (Important)
 
-When `botana_principal` is enabled, the Hub will try to clone/start `C:\Botana` automatically.
+When `botana_principal` is enabled, the Hub will try to clone/start `D:\Botana` automatically.
 
 Requirements:
 
-- `C:\FinanceHub\data\instances.json` must have:
+- `D:\FinanceAnaHub\data\instances.json` must have:
   - `instance_type = "botana"`
   - `enabled = true`
-  - `app_dir = "C:\\Botana"`
+  - `app_dir = "D:\\Botana"`
   - `repo_url = "https://github.com/AlleexMartinsT/Botana.git"`
   - `auto_clone_missing = true`
   - `start_args = ["main.py","--server","--host","127.0.0.1","--port","8865"]`
@@ -76,7 +76,7 @@ Requirements:
 If dependency installation fails in Botana, run manually on server:
 
 ```powershell
-cd C:\Botana
+cd D:\Botana
 .\.venv\Scripts\python -m pip install --upgrade pip
 .\.venv\Scripts\python -m pip install -r requirements.txt
 ```
@@ -86,33 +86,33 @@ cd C:\Botana
 1. Clone Hub:
 
 ```bash
-cd C:\
-git clone https://github.com/AlleexMartinsT/FinanceHub.git C:\FinanceHub
+cd D:\
+git clone https://github.com/AlleexMartinsT/FinanceHub.git D:\FinanceAnaHub
 ```
 
 2. Start Hub:
 
 ```bash
-C:\FinanceHub\run_hub.bat
+D:\FinanceAnaHub\run_hub.bat
 ```
 
 ## First-Run Behavior for Backends
 
 By default, `financeiro_principal` uses:
 
-- `app_dir = C:\FinanceBot`
+- `app_dir = D:\financeiroAPP`
 - `backend_url = http://127.0.0.1:8765`
 - `auto_clone_missing = true`
 
-If `C:\FinanceBot` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
+If `D:\financeiroAPP` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
 
 By default, `botana_principal` uses:
 
-- `app_dir = C:\Botana`
+- `app_dir = D:\Botana`
 - `backend_url = http://127.0.0.1:8865`
 - `auto_clone_missing = true`
 
-If `C:\Botana` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
+If `D:\Botana` does not exist, the Hub can clone it automatically from `repo_url` and then start it.
 
 ## Routes
 
@@ -155,7 +155,7 @@ Examples:
 
 Settings file:
 
-- `C:\FinanceHub\data\instances.json` (server)
+- `D:\FinanceAnaHub\data\instances.json` (server)
 
 Per-instance fields:
 
@@ -195,13 +195,13 @@ Requirements:
 Start:
 
 ```bash
-C:\FinanceHub\run_hub.bat
+D:\FinanceAnaHub\run_hub.bat
 ```
 
 Manual update:
 
 ```bash
-C:\FinanceHub\update_hub.bat
+D:\FinanceAnaHub\update_hub.bat
 ```
 
 Instant update trigger (webhook-friendly):
@@ -222,7 +222,7 @@ Notes:
 Uninstall (Hub only):
 
 ```bash
-C:\FinanceHub\uninstall_hub.bat
+D:\FinanceAnaHub\uninstall_hub.bat
 ```
 
 By default, `uninstall_hub.bat` now opens a small menu:
@@ -235,23 +235,23 @@ By default, `uninstall_hub.bat` now opens a small menu:
 Uninstall Hub + backends + AppData:
 
 ```bash
-C:\FinanceHub\uninstall_hub.bat -RemoveBackends -RemoveAppData
+D:\FinanceAnaHub\uninstall_hub.bat -RemoveBackends -RemoveAppData
 ```
 
 Equivalent PowerShell command:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\FinanceAnaHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
 ```
 
 Non-interactive examples:
 
 ```powershell
 # Hub + both backends + AppData (no confirmation)
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\FinanceAnaHub\scripts\uninstall_server.ps1 -Force -RemoveBackends -RemoveAppData
 
 # Remove only Botana
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\FinanceHub\scripts\uninstall_server.ps1 -Force -RemoveBotana
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\FinanceAnaHub\scripts\uninstall_server.ps1 -Force -RemoveBotana
 ```
 
 ## Login/Sync Diagnostics
@@ -270,11 +270,11 @@ If Hub runs as a different Windows user (or `SYSTEM`), it may use a different `%
 
 Runtime logs on server:
 
-- `C:\FinanceHub\logs\instance_debug.log`
-- `C:\FinanceHub\logs\financeiro_principal_stdout.log`
-- `C:\FinanceHub\logs\financeiro_principal_stderr.log`
-- `C:\FinanceHub\logs\botana_principal_stdout.log`
-- `C:\FinanceHub\logs\botana_principal_stderr.log`
+- `D:\FinanceAnaHub\logs\instance_debug.log`
+- `D:\FinanceAnaHub\logs\financeiro_principal_stdout.log`
+- `D:\FinanceAnaHub\logs\financeiro_principal_stderr.log`
+- `D:\FinanceAnaHub\logs\botana_principal_stdout.log`
+- `D:\FinanceAnaHub\logs\botana_principal_stderr.log`
 - The Hub server CMD now keeps a static ASCII HUD on screen, with a real console clear before each redraw, colored sections, a lighter layout, minute-level countdowns without seconds, and redraws only when the visible HUD text changes so the CMD does not accumulate old blocks while the timers run.
 - Inside that same CMD HUD, you can trigger instant checks with keyboard shortcuts: `U` for Hub update now, `I` for instance update now, and `A` for both at once.
 

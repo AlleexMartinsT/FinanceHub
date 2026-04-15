@@ -1,6 +1,6 @@
 param(
   [string]$RepoUrl = "https://github.com/AlleexMartinsT/FinanceHub.git",
-  [string]$InstallDir = "C:\FinanceHub",
+  [string]$InstallDir = "D:\FinanceAnaHub",
   [string]$Branch = "main",
   [switch]$RunHub
 )
