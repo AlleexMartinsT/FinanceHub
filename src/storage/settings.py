@@ -45,7 +45,7 @@ class AppSettingsStore:
                     enabled=True,
                     interval_seconds=1800,
                     backend_url="http://127.0.0.1:8865",
-                    app_dir=r"C:\Botana",
+                    app_dir=r"D:\Botana",
                     start_args=["main.py", "--server", "--host", "127.0.0.1", "--port", "8865"],
                     route_prefix="botana",
                     repo_url="https://github.com/AlleexMartinsT/Botana.git",
@@ -85,8 +85,8 @@ class AppSettingsStore:
             "botana_url": str(raw.get("botana_panel_url", raw.get("anabot_panel_url", "http://127.0.0.1:8865"))).strip()
             or "http://127.0.0.1:8865",
             "financeiro_dir": str(raw.get("financeiro_app_dir", r"C:\FinanceBot")).strip() or r"C:\FinanceBot",
-            "botana_dir": str(raw.get("botana_app_dir", raw.get("anabot_app_dir", r"C:\Botana"))).strip()
-            or r"C:\Botana",
+            "botana_dir": str(raw.get("botana_app_dir", raw.get("anabot_app_dir", r"D:\Botana"))).strip()
+            or r"D:\Botana",
         }
 
     @staticmethod
@@ -166,7 +166,7 @@ class AppSettingsStore:
             route_prefix = "botana"
         app_dir = str(item.get("app_dir", app_default)).strip() or app_default
         if legacy_anabot and app_dir.lower().endswith("\\anabot"):
-            app_dir = r"C:\Botana"
+            app_dir = r"D:\Botana"
         enabled = bool(item.get("enabled", True))
         if legacy_anabot:
             enabled = True
